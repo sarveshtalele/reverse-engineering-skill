@@ -32,7 +32,7 @@ def generate_sdd(
     endpoints,
     openapi_spec,
     dead_code,
-    mermaid_code,
+    graphviz_code,
     tech_stack,
     summary,
     modernization,
@@ -148,8 +148,8 @@ def generate_sdd(
             "layers": detect_architecture_layers(parsed),
             "components": components[:60],
             "dependency_graph": {
-                "format": "Mermaid",
-                "diagram": mermaid_code,
+                "format": "Graphviz",
+                "diagram": graphviz_code,
             },
         },
         "module_inventory": [

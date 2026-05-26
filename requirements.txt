@@ -1,1 +1,3 @@
-anthropic>=0.40.0
+# No external dependencies required.
+# This skill uses only Python standard library + git (for cloning).
+# No API keys, no LLM accounts, no internet access needed for analysis.

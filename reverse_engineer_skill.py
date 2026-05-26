@@ -2,47 +2,38 @@
 """
 Reverse Engineer Skill — Entry Point
 =====================================
-Clones any public GitHub repository and generates five professional output files
-via static analysis + optional AI analysis (Claude or GitHub Copilot).
+Clones any public GitHub repository and generates five professional output
+files via **pure static analysis** — no API keys, no LLM accounts, no
+internet access beyond git clone.
 
 Usage:
-    python reverse_engineer_skill.py <github-repo-url> [--no-ai] [--help]
-
-Flags:
-    --no-ai     Skip all Anthropic API calls. Uses fast heuristic fallbacks for
-                executive summary, modernization roadmap, and business logic.
-                Use this when:
-                  • You have no ANTHROPIC_API_KEY
-                  • You are using GitHub Copilot as your AI engine (see SETUP.md)
-                  • You want a faster run without AI calls
-
-    --help      Show this help message and exit.
+    python reverse_engineer_skill.py <github-repo-url> [--help]
 
 Examples:
     python reverse_engineer_skill.py https://github.com/nopSolutions/nopCommerce
-    python reverse_engineer_skill.py https://github.com/spring-projects/spring-petclinic --no-ai
-    python reverse_engineer_skill.py https://github.com/owner/my-python-api --no-ai
+    python reverse_engineer_skill.py https://github.com/spring-projects/spring-petclinic
+    python reverse_engineer_skill.py https://github.com/django/django
 
 Output files (in ./outputs/{repo_name}/):
     {repo_name}_sdd.json        — 14-section System Design Document (JSON)
-    {repo_name}_dashboard.html  — 6-section Apple-theme Stakeholder Dashboard
+    {repo_name}_dashboard.html  — 6-section interactive HTML Dashboard
     {repo_name}_report.md       — 12-section Technical Markdown Report
     {repo_name}_evaluation.md   — Automated quality score (100-point)
     manifest.json               — Run record with metrics and file sizes
 
-AI modes:
-    With ANTHROPIC_API_KEY set   → Claude claude-sonnet-4-6 writes executive summary,
-                                   modernization roadmap, and business logic analysis.
-    With --no-ai flag            → All AI sections use deterministic heuristics.
-                                   Use GitHub Copilot Chat to read the SDD JSON output
-                                   and provide AI-quality narrative (see SETUP.md).
-    No key + no flag             → Attempts API call, falls back to heuristics
-                                   automatically with a warning.
+How AI analysis works (NO API key required):
+    All analysis — executive summary, architecture pattern, business domain,
+    modernisation roadmap — is produced by pure static code heuristics:
+    class/method naming conventions, ORM entity detection, import analysis,
+    and API route extraction.  No LLM is called by the Python script.
 
-GitHub Copilot users:
-    Run with --no-ai. Then open Copilot Chat in VS Code, attach the
-    "Reverse Engineer a GitHub Repo" prompt, and let Copilot provide
-    AI analysis by reading the generated SDD JSON. No Anthropic key needed.
+    To get AI-powered narrative on top of the static results:
+      • Claude Code   : run /reverse-engineer <url> — Claude reads the
+                        output files and provides AI explanation in chat.
+      • GitHub Copilot: use the prompt in .github/prompts/reverse-engineer.prompt.md
+                        — Copilot reads the SDD JSON and provides AI narrative.
+      • Any other LLM : open the generated *_report.md or *_sdd.json and ask
+                        your preferred AI to explain or enhance the content.
 """
 
 import sys
@@ -59,30 +50,24 @@ _HELP = __doc__
 
 
 def main() -> None:
-    """CLI entry point. Parses flags and starts the pipeline."""
+    """CLI entry point. Parses arguments and starts the pipeline."""
     args = sys.argv[1:]
 
-    # Show help
     if not args or "--help" in args or "-h" in args:
         print(_HELP)
         sys.exit(0 if args else 1)
 
-    # Extract URL (first positional arg)
+    # Extract URL (first positional arg — ignore any legacy --no-ai flag)
     repo_url = next((a for a in args if not a.startswith("--")), None)
     if not repo_url:
         print("Error: No GitHub URL provided.\n")
-        print("Usage: python reverse_engineer_skill.py <github-repo-url> [--no-ai]")
+        print("Usage: python reverse_engineer_skill.py <github-repo-url>")
         sys.exit(1)
 
-    # Flags
-    skip_ai = "--no-ai" in args
+    if "--no-ai" in args:
+        print("  [info] --no-ai flag ignored — this build uses pure static heuristics by default.\n")
 
-    if skip_ai:
-        print("  [--no-ai] AI API calls disabled — using heuristic analysis.")
-        print("  Tip: Open Copilot Chat in VS Code and attach 'Reverse Engineer a GitHub Repo'")
-        print("       prompt to get AI-quality analysis from GitHub Copilot.\n")
-
-    run_pipeline(repo_url, skip_ai=skip_ai)
+    run_pipeline(repo_url)
 
 
 if __name__ == "__main__":

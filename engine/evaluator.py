@@ -44,7 +44,7 @@ def evaluate_pipeline_output(
     endpoints,
     dead_code,
     dep_map,
-    mermaid_code,
+    graphviz_code,
     tech_stack,
     summary,
     modernization,
@@ -91,7 +91,7 @@ def evaluate_pipeline_output(
         _eval_api_endpoints(endpoints, parsed),
         _eval_dead_code(dead_code, report),
         _eval_data_architecture(db_schema, data_boundaries, parsed),
-        _eval_dependency_graph(dep_map, mermaid_code, tech_stack),
+        _eval_dependency_graph(dep_map, graphviz_code, tech_stack),
         _eval_ai_analysis(summary, modernization),
     ]
 
@@ -622,7 +622,7 @@ def _eval_data_architecture(db_schema, data_boundaries, parsed):
                     ))
 
 
-def _eval_dependency_graph(dep_map, mermaid_code, tech_stack):
+def _eval_dependency_graph(dep_map, graphviz_code, tech_stack):
     """Evaluate dependency graph and tech stack detection."""
     checks = []
     score  = 0
@@ -644,20 +644,20 @@ def _eval_dependency_graph(dep_map, mermaid_code, tech_stack):
         checks.append(_check("Dependency Map Built", "FAIL", 0, 5,
                              "Dependency map is empty — import detection may have failed"))
 
-    # Check 2: Mermaid diagram generated (5 pts)
-    if mermaid_code and len(mermaid_code.strip()) > 20:
-        node_count_in_diagram = mermaid_code.count("-->")
-        checks.append(_check("Mermaid Diagram", "PASS", 5, 5,
-                             f"Mermaid diagram generated ({node_count_in_diagram} edges shown)"))
+    # Check 2: Graphviz diagram generated (5 pts)
+    if graphviz_code and len(graphviz_code.strip()) > 20:
+        node_count_in_diagram = graphviz_code.count("->")
+        checks.append(_check("Graphviz Diagram", "PASS", 5, 5,
+                             f"Graphviz diagram generated ({node_count_in_diagram} edges shown)"))
         score += 5
-    elif mermaid_code:
-        checks.append(_check("Mermaid Diagram", "WARN", 2, 5,
-                             "Mermaid diagram generated but very small — "
+    elif graphviz_code:
+        checks.append(_check("Graphviz Diagram", "WARN", 2, 5,
+                             "Graphviz diagram generated but very small — "
                              "few inter-module dependencies detected"))
         score += 2
     else:
-        checks.append(_check("Mermaid Diagram", "FAIL", 0, 5,
-                             "No Mermaid diagram generated"))
+        checks.append(_check("Graphviz Diagram", "FAIL", 0, 5,
+                             "No Graphviz diagram generated"))
 
     # Check 3: Tech stack detected (5 pts)
     if len(tech_stack) >= 3:

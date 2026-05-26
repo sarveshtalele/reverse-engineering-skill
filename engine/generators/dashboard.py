@@ -41,7 +41,7 @@ def generate_html_dashboard(
     report,
     endpoints,
     dead_code,
-    mermaid_code,
+    graphviz_code,
     tech_stack,
     summary,
     modernization,
@@ -52,6 +52,7 @@ def generate_html_dashboard(
     data_boundaries=None,
     business_logic=None,
     block_diagram=None,
+    dep_graph=None,
 ):
     """Generate a professional sidebar-based stakeholder HTML dashboard.
 
@@ -166,6 +167,7 @@ def generate_html_dashboard(
         "fallback_used":           business_logic.get("fallback_used", True),
     })
     block_diagram_js    = json.dumps(block_diagram or "")
+    dep_graph_js        = json.dumps(dep_graph or {"nodes": [], "edges": []})
     priority         = summary.get("modernization_priority", "HIGH")
     generated_at     = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%B %d, %Y at %H:%M UTC"
@@ -188,7 +190,7 @@ def generate_html_dashboard(
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/dist/vis-network.min.js"></script>
 <link  href="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/styles/vis-network.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@hpcc-js/wasm@2.20.0/dist/index.min.js"></script>
 <style>
 /* ================================================================
    CSS Variables — single source of truth for all colours
@@ -1112,6 +1114,10 @@ body {{
             <span id="priority-badge"></span>
           </div>
           <div class="stat-row">
+            <span class="stat-label">Est. Modernization Effort</span>
+            <span class="stat-val" id="effort-text"></span>
+          </div>
+          <div class="stat-row">
             <span class="stat-label">Platform</span>
             <span class="stat-val">{platform}</span>
           </div>
@@ -1201,14 +1207,20 @@ body {{
     <div class="content-area">
 
       <div class="card" style="margin-bottom:20px">
-        <div class="card-title">
-          <div class="card-title-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/>
-              <line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/>
-            </svg>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div class="card-title" style="margin:0">
+            <div class="card-title-icon">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="5" r="3"/><circle cx="5" cy="19" r="3"/><circle cx="19" cy="19" r="3"/>
+                <line x1="12" y1="8" x2="5" y2="16"/><line x1="12" y1="8" x2="19" y2="16"/>
+              </svg>
+            </div>
+            Dependency Graph
           </div>
-          Dependency Graph
+          <div class="toggle-container" style="display:flex; background:var(--surface1); border:1px solid var(--border); padding:2px; border-radius:6px;">
+            <button onclick="toggleGraphView('interactive')" id="btn-graph-interactive" class="toggle-btn" style="border:none; background:var(--surface); color:var(--text); padding:4px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.05); transition:all 0.2s;">Interactive</button>
+            <button onclick="toggleGraphView('static')" id="btn-graph-static" class="toggle-btn" style="border:none; background:transparent; color:var(--text2); padding:4px 8px; border-radius:4px; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s;">Static SVG</button>
+          </div>
         </div>
         <!-- vis-network interactive dependency graph.
              .network-wrap clips canvas to border-radius and is the
@@ -1222,8 +1234,12 @@ body {{
             <span><span class="legend-dot" style="background:#aeaeb2"></span>Module</span>
           </div>
         </div>
+        <!-- Static high-fidelity fallback SVG -->
+        <div id="arch-static-svg" style="display:none; width:100%; border:1px solid var(--border); border-radius:8px; background:var(--surface1); padding:16px; box-sizing:border-box;">
+          <img src="{repo_name}_dependency_graph.svg" alt="Module Dependency Graph" style="width:100%; max-height:550px; object-fit:contain; display:block; margin:0 auto; border-radius:6px;" />
+        </div>
         <!-- raw graph source stored for JS parsing — never displayed -->
-        <script type="text/plain" id="arch-graph-src">{mermaid_code}</script>
+        <script type="text/plain" id="arch-graph-src">{graphviz_code}</script>
       </div>
 
       <div class="two-col">
@@ -1379,7 +1395,7 @@ body {{
           System Architecture Block Diagram
         </div>
         <div id="block-diagram-container" style="background:var(--surface2);border-radius:8px;padding:20px;overflow:auto;min-height:200px;display:flex;align-items:center;justify-content:center">
-          <div class="mermaid" id="block-diagram-mermaid" style="width:100%"></div>
+          <div id="block-diagram-graphviz" style="width:100%;display:flex;justify-content:center"></div>
         </div>
         <p id="block-diagram-fallback" style="display:none;font-size:13px;color:var(--text2);padding:12px;font-family:monospace;white-space:pre-wrap;background:var(--surface2);border-radius:8px;margin-top:8px"></p>
       </div>
@@ -1398,7 +1414,7 @@ body {{
         <div style="margin-bottom:12px">
           <span class="badge blue" id="hiw-domain-badge" style="font-size:13px;padding:5px 12px"></span>
         </div>
-        <div id="hiw-what" style="font-size:14px;line-height:1.7;color:var(--text1)"></div>
+        <div id="hiw-what" style="font-size:14px;line-height:1.7;color:var(--text)"></div>
       </div>
 
       <!-- Core Workflows -->
@@ -1440,7 +1456,7 @@ body {{
             </div>
             Key Business Rules
           </div>
-          <ul id="hiw-rules" style="margin:8px 0 0 0;padding-left:18px;font-size:13px;color:var(--text1);line-height:1.7"></ul>
+          <ul id="hiw-rules" style="margin:8px 0 0 0;padding-left:18px;font-size:13px;color:var(--text);line-height:1.7"></ul>
         </div>
       </div>
 
@@ -1584,7 +1600,37 @@ const DATA = {{
   dataBoundaries: {data_boundaries_js},
   businessLogic:  {business_logic_js},
   blockDiagram:   {block_diagram_js},
+  dependencyGraph: {dep_graph_js},
 }};
+
+function toggleGraphView(view) {{
+  const interactiveWrap = document.querySelector('.network-wrap');
+  const staticWrap = document.getElementById('arch-static-svg');
+  const btnInteractive = document.getElementById('btn-graph-interactive');
+  const btnStatic = document.getElementById('btn-graph-static');
+  
+  if (!interactiveWrap || !staticWrap || !btnInteractive || !btnStatic) return;
+  
+  if (view === 'interactive') {{
+    interactiveWrap.style.display = 'block';
+    staticWrap.style.display = 'none';
+    btnInteractive.style.background = 'var(--surface)';
+    btnInteractive.style.color = 'var(--text)';
+    btnInteractive.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+    btnStatic.style.background = 'transparent';
+    btnStatic.style.color = 'var(--text2)';
+    btnStatic.style.boxShadow = 'none';
+  }} else {{
+    interactiveWrap.style.display = 'none';
+    staticWrap.style.display = 'block';
+    btnInteractive.style.background = 'transparent';
+    btnInteractive.style.color = 'var(--text2)';
+    btnInteractive.style.boxShadow = 'none';
+    btnStatic.style.background = 'var(--surface)';
+    btnStatic.style.color = 'var(--text)';
+    btnStatic.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+  }}
+}}
 
 // ----------------------------------------------------------------
 // Navigation
@@ -1828,7 +1874,7 @@ function buildHowItWorks() {{
   // What it does — render each paragraph as <p>
   const whatEl = document.getElementById('hiw-what');
   if (whatEl) {{
-    const paras = (bl.what_it_does || 'No description available.').split(/\n\n+/);
+    const paras = (bl.what_it_does || 'No description available.').split(/\\n\\n+/);
     whatEl.innerHTML = paras.map(p => `<p style="margin:0 0 10px 0">${{p.replace(/[*][*]/g, '')}}</p>`).join('');
   }}
 
@@ -1842,9 +1888,9 @@ function buildHowItWorks() {{
         const eps   = (wf.endpoints || []).map(e => `<code style="font-size:11px;background:var(--surface2);padding:2px 6px;border-radius:4px;margin-right:4px">${{e}}</code>`).join('');
         return `
           <div style="margin-bottom:16px;padding:14px;background:var(--surface2);border-radius:8px;border-left:3px solid #0071e3">
-            <div style="font-weight:600;font-size:14px;margin-bottom:6px;color:var(--text1)">${{i+1}}. ${{wf.name || 'Workflow ' + (i+1)}}</div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:6px;color:var(--text)">${{i+1}}. ${{wf.name || 'Workflow ' + (i+1)}}</div>
             ${{wf.description ? `<p style="font-size:13px;color:var(--text2);margin:0 0 8px 0">${{wf.description}}</p>` : ''}}
-            ${{steps ? `<ul style="margin:0 0 8px 0;padding-left:18px;font-size:13px;color:var(--text1)">${{steps}}</ul>` : ''}}
+            ${{steps ? `<ul style="margin:0 0 8px 0;padding-left:18px;font-size:13px;color:var(--text)">${{steps}}</ul>` : ''}}
             ${{eps ? `<div style="margin-top:6px">${{eps}}</div>` : ''}}
           </div>`;
       }}).join('');
@@ -1871,7 +1917,7 @@ function buildHowItWorks() {{
       : '<li style="color:var(--text2)">No rules inferred</li>';
   }}
 
-  // Entity glossary
+  // Entity glossary — data shape: {{entity, business_meaning, key_operations}}
   const entEl = document.getElementById('hiw-entities');
   if (entEl) {{
     const ents = bl.data_entities_explained || [];
@@ -1882,13 +1928,15 @@ function buildHowItWorks() {{
             <tr style="border-bottom:1px solid var(--border)">
               <th style="text-align:left;padding:8px 12px;color:var(--text2);font-weight:500;width:25%">Entity</th>
               <th style="text-align:left;padding:8px 12px;color:var(--text2);font-weight:500">Business Meaning</th>
+              <th style="text-align:left;padding:8px 12px;color:var(--text2);font-weight:500;width:30%">Key Operations</th>
             </tr>
           </thead>
           <tbody>
             ${{ents.map((e, i) => `
               <tr style="border-bottom:1px solid var(--border);background:${{i%2===0?'transparent':'var(--surface2)'}}">
-                <td style="padding:8px 12px;font-weight:600;color:var(--blue)">${{e.name || e}}</td>
-                <td style="padding:8px 12px;color:var(--text1)">${{e.description || e.meaning || ''}}</td>
+                <td style="padding:8px 12px;font-weight:600;color:var(--blue)">${{e.entity || e.name || e}}</td>
+                <td style="padding:8px 12px;color:var(--text)">${{e.business_meaning || e.description || e.meaning || ''}}</td>
+                <td style="padding:8px 12px;color:var(--text2);font-size:12px">${{(e.key_operations || []).join(', ')}}</td>
               </tr>`).join('')}}
           </tbody>
         </table>`;
@@ -1905,56 +1953,115 @@ function buildHowItWorks() {{
       ? integrations.map(i => `<span class="badge">${{i}}</span>`).join('')
       : '<span style="font-size:13px;color:var(--text2)">None detected</span>';
   }}
-
-  // Block diagram — render with Mermaid.js
-  renderBlockDiagram();
+  // NOTE: renderBlockDiagram() is called from switchSection('howitworks')
+  // not here, to ensure Mermaid CDN is loaded before rendering.
 }}
 
 function renderBlockDiagram() {{
-  const diagramSrc = DATA.blockDiagram || '';
-  const container  = document.getElementById('block-diagram-mermaid');
-  const fallback   = document.getElementById('block-diagram-fallback');
+  const container = document.getElementById('block-diagram-graphviz');
   if (!container) return;
-  if (!diagramSrc) {{
-    container.parentElement.style.display = 'none';
+  
+  const data = DATA.blockDiagram;
+  if (!data || !data.layers || !data.layers.length) {{
+    container.innerHTML = '<p style="font-size:13px;color:var(--text2);padding:24px">No system architecture block diagram available</p>';
     return;
   }}
-  try {{
-    if (!mermaidInited) {{
-      mermaid.initialize({{
-        startOnLoad: false,
-        theme: 'default',
-        flowchart: {{ curve: 'basis', padding: 20, nodeSpacing: 40, rankSpacing: 60 }},
-        themeVariables: {{
-          primaryColor: '#e8f0fe',
-          primaryTextColor: '#1a1a2e',
-          primaryBorderColor: '#0071e3',
-          lineColor: '#0071e3',
-          secondaryColor: '#f0f4ff',
-          tertiaryColor: '#f5f5f7',
+
+  let html = '<div class="block-diagram-wrap" style="width:100%; max-width:800px; display:flex; flex-direction:column; gap:12px; margin:0 auto;">';
+  
+  data.layers.forEach((layer, idx) => {{
+    if (idx > 0) {{
+      html += `
+        <div class="layer-connector-flow" style="display:flex; flex-direction:column; align-items:center; margin:-6px 0 -6px 0; z-index:1;">
+          <div class="connector-line" style="width:2px; height:24px; background:var(--border); transition:background 0.3s;"></div>
+          <div class="connector-arrow" style="width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid var(--border); transition:border-top-color 0.3s;"></div>
+        </div>`;
+    }}
+    
+    const nodeChips = layer.nodes.map(node => `
+      <div class="diagram-node-pill" 
+           id="diagram-node-${{node.id}}" 
+           data-node-id="${{node.id}}"
+           data-layer-color="${{layer.color}}"
+           style="background:var(--surface); border:1.5px solid var(--border); padding:8px 16px; border-radius:8px; font-size:12px; font-weight:550; color:var(--text); cursor:pointer; transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display:flex; align-items:center; gap:6px; user-select:none;">
+        <span class="node-dot-indicator" style="width:6px; height:6px; background:${{layer.color}}; border-radius:50%;"></span>
+        ${{node.label}}
+      </div>
+    `).join('');
+    
+    html += `
+      <div class="diagram-layer-card" 
+           id="diagram-layer-${{layer.id}}"
+           style="border:1px solid var(--border); border-left:5px solid ${{layer.color}}; background:var(--surface1); padding:16px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.03); transition:all 0.3s ease;">
+        <div class="diagram-layer-header" style="display:flex; align-items:center; margin-bottom:12px;">
+          <span style="font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:${{layer.color}};">${{layer.label}}</span>
+        </div>
+        <div class="diagram-layer-nodes" style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${{nodeChips}}
+        </div>
+      </div>
+    `;
+  }});
+  
+  html += '</div>';
+  container.innerHTML = html;
+  
+  const nodes = container.querySelectorAll('.diagram-node-pill');
+  nodes.forEach(nodeEl => {{
+    nodeEl.addEventListener('mouseenter', () => {{
+      const hoveredId = nodeEl.dataset.nodeId;
+      const layerColor = nodeEl.dataset.layerColor;
+      
+      const connectedIds = new Set();
+      
+      (data.edges || []).forEach(edge => {{
+        if (edge.from === hoveredId) {{
+          connectedIds.add(edge.to);
+        }} else if (edge.to === hoveredId) {{
+          connectedIds.add(edge.from);
         }}
       }});
-      mermaidInited = true;
-    }}
-    mermaid.render('block-diagram-svg', diagramSrc).then(result => {{
-      container.innerHTML = result.svg;
-      // Make SVG responsive
-      const svg = container.querySelector('svg');
-      if (svg) {{ svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }}
-    }}).catch(err => {{
-      container.style.display = 'none';
-      if (fallback) {{
-        fallback.style.display = 'block';
-        fallback.textContent = diagramSrc;
-      }}
+      
+      nodeEl.style.background = layerColor;
+      nodeEl.style.borderColor = layerColor;
+      nodeEl.style.color = '#ffffff';
+      nodeEl.style.transform = 'translateY(-2px) scale(1.03)';
+      nodeEl.style.boxShadow = `0 6px 16px ${{layerColor}}33`;
+      const dot = nodeEl.querySelector('.node-dot-indicator');
+      if (dot) dot.style.background = '#ffffff';
+      
+      connectedIds.forEach(id => {{
+        const connEl = document.getElementById(`diagram-node-${{id}}`);
+        if (connEl) {{
+          const connColor = connEl.dataset.layerColor;
+          connEl.style.borderColor = connColor;
+          connEl.style.background = `${{connColor}}12`;
+          connEl.style.transform = 'scale(1.02)';
+          connEl.style.boxShadow = '0 4px 10px rgba(0,0,0,0.06)';
+        }}
+      }});
+      
+      nodes.forEach(otherEl => {{
+        const otherId = otherEl.dataset.nodeId;
+        if (otherId !== hoveredId && !connectedIds.has(otherId)) {{
+          otherEl.style.opacity = '0.35';
+        }}
+      }});
     }});
-  }} catch(e) {{
-    container.style.display = 'none';
-    if (fallback) {{
-      fallback.style.display = 'block';
-      fallback.textContent = diagramSrc;
-    }}
-  }}
+    
+    nodeEl.addEventListener('mouseleave', () => {{
+      nodes.forEach(el => {{
+        el.style.background = 'var(--surface)';
+        el.style.borderColor = 'var(--border)';
+        el.style.color = 'var(--text)';
+        el.style.transform = '';
+        el.style.boxShadow = '';
+        el.style.opacity = '';
+        const dot = el.querySelector('.node-dot-indicator');
+        if (dot) dot.style.background = el.dataset.layerColor;
+      }});
+    }});
+  }});
 }}
 
 // ----------------------------------------------------------------
@@ -1967,48 +2074,45 @@ function initNetwork() {{
   const container = document.getElementById('arch-network');
   if (!container) return;
 
-  // Parse the graph source from the hidden script element and build vis.js nodes/edges.
-  const src = (document.getElementById('arch-graph-src') || {{}}).textContent || '';
-  const edgeLines = src.split('\\n').filter(l => /\\w+\\s+-->\\s+\\w+/.test(l));
-
-  const nodeMap  = new Map();   // label → id
   const nodesArr = [];
   const edgesArr = [];
-  let nid = 0;
 
   function nodeColor(label) {{
-    if (/controller/i.test(label)) return {{ background:'#0071e3', border:'#005bb5', highlight:{{background:'#339af0',border:'#005bb5'}} }};
-    if (/service/i.test(label))    return {{ background:'#30d158', border:'#1a8c3a', highlight:{{background:'#69db7c',border:'#1a8c3a'}} }};
+    if (/controller/i.test(label) || /handler/i.test(label)) return {{ background:'#0071e3', border:'#005bb5', highlight:{{background:'#339af0',border:'#005bb5'}} }};
+    if (/service/i.test(label) || /manager/i.test(label))    return {{ background:'#30d158', border:'#1a8c3a', highlight:{{background:'#69db7c',border:'#1a8c3a'}} }};
     if (/repo|repositor/i.test(label)) return {{ background:'#ff9f0a', border:'#c47900', highlight:{{background:'#ffc078',border:'#c47900'}} }};
     return {{ background:'#d1d1d6', border:'#aeaeb2', highlight:{{background:'#e5e5ea',border:'#8e8e93'}} }};
   }}
 
-  edgeLines.forEach(line => {{
-    const m = line.match(/(\\w+)\\s+-->\\s+(\\w+)/);
-    if (!m) return;
-    const [, srcLbl, tgtLbl] = m;
-    // Display labels: replace underscores back to dots for dependency nodes
-    const srcDisplay = srcLbl;
-    const tgtDisplay = tgtLbl.replace(/_/g, '.');
+  const graphData = DATA.dependencyGraph || {{nodes: [], edges: []}};
+  
+  if (graphData.nodes) {{
+    graphData.nodes.forEach(n => {{
+      const isCtrl = /controller/i.test(n.label) || /handler/i.test(n.label);
+      nodesArr.push({{
+        id: n.id,
+        label: n.label,
+        color: nodeColor(n.label),
+        font: {{ size: isCtrl ? 12 : 11, color:'#1d1d1f', face:'Helvetica Neue,Arial,sans-serif' }},
+        shape: isCtrl ? 'box' : 'ellipse',
+        margin: 6,
+        borderWidth: 1.5
+      }});
+    }});
+  }}
 
-    if (!nodeMap.has(srcLbl)) {{
-      const id = nid++;
-      nodeMap.set(srcLbl, id);
-      nodesArr.push({{ id, label: srcDisplay, color: nodeColor(srcDisplay),
-        font: {{ size: 12, color:'#1d1d1f', face:'Helvetica Neue,Arial,sans-serif' }},
-        shape: 'box', margin: 6, borderWidth: 1.5 }});
-    }}
-    if (!nodeMap.has(tgtLbl)) {{
-      const id = nid++;
-      nodeMap.set(tgtLbl, id);
-      nodesArr.push({{ id, label: tgtDisplay, color: nodeColor(tgtDisplay),
-        font: {{ size: 11, color:'#3c3c43', face:'Helvetica Neue,Arial,sans-serif' }},
-        shape: 'ellipse', margin: 5, borderWidth: 1 }});
-    }}
-    edgesArr.push({{ from: nodeMap.get(srcLbl), to: nodeMap.get(tgtLbl),
-      arrows: 'to', color: {{ color:'#c7c7cc', highlight:'#0071e3' }},
-      width: 1, smooth: {{ type:'cubicBezier', forceDirection:'vertical', roundness:0.4 }} }});
-  }});
+  if (graphData.edges) {{
+    graphData.edges.forEach(e => {{
+      edgesArr.push({{
+        from: e.from,
+        to: e.to,
+        arrows: 'to',
+        color: {{ color:'#c7c7cc', highlight:'#0071e3' }},
+        width: 1,
+        smooth: {{ type:'cubicBezier', forceDirection:'vertical', roundness:0.4 }}
+      }});
+    }});
+  }}
 
   if (!nodesArr.length) {{
     container.innerHTML = '<p style="padding:40px 24px;font-size:13px;color:var(--text2)">No dependency edges detected for this repository.</p>';
@@ -2294,7 +2398,9 @@ function buildBusinessLogic() {{
 }}
 
 // ----------------------------------------------------------------
-// Boot
+// Boot — render all static sections at startup.
+// Sections that rely on external CDNs (Mermaid, vis.js) are
+// triggered lazily via switchSection() on first tab activation.
 // ----------------------------------------------------------------
 buildMetrics();
 buildLangBars();
@@ -2305,8 +2411,8 @@ buildBusinessLogic();
 buildEndpoints();
 buildDeadCode();
 buildArchDetails();
-buildHowItWorks();
-buildDataArch();
+buildHowItWorks();   // renders text sections; block diagram deferred to tab click
+buildDataArch();     // renders static cards; entity network deferred to tab click
 </script>
 </body>
 </html>"""

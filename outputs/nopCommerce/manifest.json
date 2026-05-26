@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-05-26T10:34:06.714049+00:00Z",
+  "repo_name": "nopCommerce",
+  "output_directory": "outputs\\nopCommerce",
+  "files_written": [
+    {
+      "file": "nopCommerce_sdd.json",
+      "type": "json",
+      "size": 437910
+    },
+    {
+      "file": "nopCommerce_dashboard.html",
+      "type": "text",
+      "size": 129805
+    },
+    {
+      "file": "nopCommerce_report.md",
+      "type": "text",
+      "size": 55213
+    },
+    {
+      "file": "nopCommerce_block_diagram.svg",
+      "type": "text",
+      "size": 6942
+    },
+    {
+      "file": "nopCommerce_dependency_graph.svg",
+      "type": "text",
+      "size": 18352
+    }
+  ],
+  "metrics": {
+    "files_analyzed": 292,
+    "classes": 231,
+    "methods": 1452,
+    "api_endpoints": 284,
+    "dead_files": 79,
+    "primary_language": "dotnet"
+  }
+}

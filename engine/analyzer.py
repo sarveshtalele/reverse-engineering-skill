@@ -12,7 +12,7 @@ Typical call order inside the pipeline:
 
 1. :func:`generate_report` — aggregate totals
 2. :func:`build_dependency_map` — module-level dependency graph
-3. :func:`generate_mermaid` — Mermaid diagram string
+3. :func:`generate_dep_graph_data` — structured dependency graph (nodes + edges)
 4. :func:`extract_api_endpoints` — flat list of routes
 5. :func:`generate_openapi_spec` — OpenAPI 3.0 spec dict
 6. :func:`detect_dead_code` — unreferenced files and classes
@@ -21,6 +21,7 @@ Typical call order inside the pipeline:
 9. :func:`detect_architecture_layers` — N-tier layer labels
 10. :func:`find_top_modules` — most-connected modules
 11. :func:`extract_external_deps` — sorted external dependency list
+12. :func:`generate_block_diagram` — structured block diagram (layers + edges)
 """
 
 import re
@@ -85,21 +86,19 @@ def build_dependency_map(parsed):
     return dep_map
 
 
-def generate_mermaid(parsed, max_links=80):
-    """Generate a Mermaid ``graph TD`` diagram of inter-module dependencies.
+def generate_dep_graph_data(parsed, max_links=80):
+    """Build a structured dependency graph from parsed records.
 
-    Standard library / framework root packages are ignored to keep the graph
-    readable.  Node identifiers are sanitised to contain only alphanumeric
-    characters and underscores.
+    Returns a JSON-serialisable dict of nodes and directed edges suitable
+    for rendering with vis.js (Architecture tab) or any SVG renderer.
+    Standard-library / framework root packages are filtered out.
 
     Args:
         parsed (list[dict]): List of file records.
         max_links (int): Maximum number of edges to emit.  Defaults to 80.
 
     Returns:
-        str: A Mermaid ``graph TD`` diagram as a multi-line string, suitable
-        for embedding in a ``<pre class="mermaid">`` block or a fenced
-        Markdown code block.
+        dict: ``{"nodes": [{"id", "label", "group"}], "edges": [{"from", "to"}]}``
     """
     IGNORE = {
         "java", "javax", "org", "com", "System", "Microsoft", "Newtonsoft",
@@ -107,23 +106,92 @@ def generate_mermaid(parsed, max_links=80):
         "time", "subprocess", "ast", "pathlib", "abc", "enum", "functools",
         "react", "lodash", "express", "next", "angular", "vue",
     }
-    lines = ["graph TD"]
-    seen, count = set(), 0
+    node_ids: dict = {}   # label -> int id
+    nodes:    list = []
+    edges:    list = []
+    seen_edges: set = set()
+    nid = 0
+    edge_count = 0
+
+    def _get_node(label, group):
+        nonlocal nid
+        if label not in node_ids:
+            node_ids[label] = nid
+            nodes.append({"id": nid, "label": label, "group": group})
+            nid += 1
+        return node_ids[label]
+
     for item in parsed:
-        if count >= max_links:
+        if edge_count >= max_links:
             break
-        src = re.sub(r'[^a-zA-Z0-9_]', '_', Path(item["file"]).stem)
+        src_raw = re.sub(r'[^a-zA-Z0-9_]', '_', Path(item["file"]).stem)
+        src_id  = _get_node(src_raw, "module")
         for dep in item.get("dependencies", []):
             root = dep.split(".")[0]
             if root in IGNORE or not root:
                 continue
-            tgt = re.sub(r'[^a-zA-Z0-9_]', '_', dep.replace(".", "_"))
-            if src == tgt or (src, tgt) in seen:
+            tgt_raw = re.sub(r'[^a-zA-Z0-9_]', '_', dep.replace(".", "_"))
+            if src_raw == tgt_raw or (src_raw, tgt_raw) in seen_edges:
                 continue
-            seen.add((src, tgt))
-            lines.append(f"    {src} --> {tgt}")
-            count += 1
-    return "\n".join(lines)
+            seen_edges.add((src_raw, tgt_raw))
+            tgt_display = dep.replace("_", ".")
+            tgt_id = _get_node(tgt_display, "dependency")
+            edges.append({"from": src_id, "to": tgt_id})
+            edge_count += 1
+
+    return {"nodes": nodes, "edges": edges}
+
+
+def generate_graphviz_dot(dep_graph_data):
+    """Generate a Graphviz DOT string from dependency graph data dictionary.
+
+    Args:
+        dep_graph_data (dict): Dict with "nodes" and "edges" lists.
+
+    Returns:
+        str: Valid Graphviz DOT language string.
+    """
+    dot = [
+        "digraph G {",
+        "  rankdir=LR;",
+        "  splines=true;",
+        "  node [shape=box, style=filled, fillcolor=\"#aeaeb2\", color=\"#8e8e93\", fontcolor=\"#1d1d1f\", fontname=\"Helvetica\", fontsize=10];",
+        "  edge [color=\"#c7c7cc\", fontname=\"Helvetica\", fontsize=8];"
+    ]
+    
+    nodes = dep_graph_data.get("nodes", [])
+    edges = dep_graph_data.get("edges", [])
+    
+    # Custom node colors by role
+    for n in nodes:
+        lbl = n.get("label", "")
+        nid = n.get("id", "")
+        if "controller" in lbl.lower() or "handler" in lbl.lower():
+            fill, border, font = "#0071e3", "#005bb5", "#ffffff"
+            shape = "box"
+        elif "service" in lbl.lower() or "manager" in lbl.lower():
+            fill, border, font = "#30d158", "#1a8c3a", "#ffffff"
+            shape = "box"
+        elif "repository" in lbl.lower() or "repo" in lbl.lower():
+            fill, border, font = "#ff9f0a", "#c47900", "#ffffff"
+            shape = "box"
+        else:
+            fill, border, font = "#aeaeb2", "#8e8e93", "#1d1d1f"
+            shape = "ellipse"
+            
+        dot.append(f"  node_{nid} [label=\"{lbl}\", fillcolor=\"{fill}\", color=\"{border}\", fontcolor=\"{font}\", shape=\"{shape}\"];")
+        
+    for e in edges:
+        dot.append(f"  node_{e['from']} -> node_{e['to']};")
+        
+    dot.append("}")
+    return "\n".join(dot)
+
+
+# Keep the old name as an alias so existing code that may import it still works
+def generate_mermaid(parsed, max_links=80):
+    """Alias for backward compatibility — returns Graphviz DOT string."""
+    return generate_graphviz_dot(generate_dep_graph_data(parsed, max_links))
 
 
 # ---------------------------------------------------------------------------
@@ -634,129 +702,182 @@ def suggest_microservice_data_boundaries(db_schema, modernization=None):
 # ---------------------------------------------------------------------------
 
 def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
-    """Generate a Mermaid ``flowchart TB`` block diagram of the analysed system.
+    """Generate a structured block diagram of the analysed system.
 
-    The diagram is derived entirely from static analysis — no AI call required.
-    It classifies parsed classes into architectural layers (controller, service,
-    repository/DAO) and adds entity nodes for the database layer.
+    Returns a JSON-serialisable dict with ``layers`` (list of layer groups,
+    each containing named nodes) and ``edges`` (directed connections between
+    layers).  The dashboard renders this with a pure-SVG custom renderer —
+    no Mermaid.js or external library required.
 
     Args:
         parsed (list[dict]): File records from :func:`engine.parsers.parse_file`.
-        endpoints (list[dict]): API endpoint records from
-            :func:`extract_api_endpoints`.
+        endpoints (list[dict]): API endpoint records.
         db_schema (dict): Schema dict from :func:`detect_database_schema`.
-        tech_stack (list[str]): Detected tech stack from
-            :func:`detect_tech_stack`.
+        tech_stack (list[str]): Detected tech stack.
 
     Returns:
-        str: A valid Mermaid ``flowchart TB`` diagram string ready for
-        rendering in the dashboard or Markdown report.
+        dict: ``{"layers": [{"id", "label", "color", "nodes": [{"id", "label"}]}],
+                "edges": [{"from", "to", "label"}]}``
     """
-    from pathlib import Path as _Path
-
-    # ----------------------------------------------------------------
-    # Classify classes into layers
-    # ----------------------------------------------------------------
-    controllers, services, repositories, models = [], [], [], []
-    seen: set = set()
-
-    for item in parsed[:80]:
-        for cls in item.get("classes", []):
-            if cls in seen or not cls:
-                continue
-            seen.add(cls)
-            lower = cls.lower()
-            if any(k in lower for k in ("controller", "handler", "router", "endpoint")):
-                controllers.append(cls)
-            elif any(k in lower for k in ("service", "manager", "usecase", "facade", "workflow")):
-                services.append(cls)
-            elif any(k in lower for k in ("repository", "repo", "dao", "store", "gateway", "adapter")):
-                repositories.append(cls)
-            elif any(k in lower for k in ("model", "entity", "dto", "viewmodel", "schema")):
-                models.append(cls)
-
-    # Cap each layer for diagram readability
-    controllers  = controllers[:6]
-    services     = services[:6]
-    repositories = repositories[:5]
-    entities     = [e["name"] for e in db_schema.get("entities", [])[:6]]
-
-    # ----------------------------------------------------------------
-    # Helper: safe node ID (alphanumeric + underscore)
-    # ----------------------------------------------------------------
     import re as _re
+
     def _safe(name):
-        return _re.sub(r'[^A-Za-z0-9]', '_', name)
+        return _re.sub(r'[^A-Za-z0-9]', '_', str(name))
 
-    lines = ["flowchart TB"]
+    # Classify files and classes into layers using both class names and path heuristics
+    controllers, services, repositories = [], [], []
+    seen_classes = set()
+    seen_components = set()
 
-    # ── Client ──────────────────────────────────────────────────────
-    lines.append('    Client(["👤 User / Client"])')
-    lines.append("")
+    for item in parsed[:150]:
+        file_path = item.get("file", "")
+        file_lower = file_path.lower()
+        
+        # Check folder structure
+        is_presentation = any(k in file_lower for k in ("/controllers/", "/api/", "/endpoints/", "/handlers/", "/pages/", "/views/", "\\controllers\\", "\\api\\", "\\endpoints\\", "\\handlers\\", "\\pages\\", "\\views\\")) or file_lower.endswith((".aspx", ".html", ".js", ".ts"))
+        is_logic = any(k in file_lower for k in ("/services/", "/managers/", "/usecases/", "/business/", "/logic/", "/workflows/", "\\services\\", "\\managers\\", "\\usecases\\", "\\business\\", "\\logic\\", "\\workflows\\"))
+        is_data = any(k in file_lower for k in ("/repositories/", "/repos/", "/dao/", "/dal/", "/store/", "/data/", "/db/", "\\repositories\\", "\\repos\\", "\\dao\\", "\\dal\\", "\\store\\", "\\data\\", "\\db\\"))
 
-    # ── API / Presentation Layer ─────────────────────────────────────
-    if controllers or endpoints:
-        lines.append('    subgraph API["🌐 API / Presentation Layer"]')
-        if controllers:
-            for c in controllers:
-                lines.append(f'        {_safe(c)}["{c}"]')
-        else:
-            # Fall back to showing grouped endpoints by first segment
-            _ep_groups: dict = {}
-            for ep in endpoints[:8]:
-                parts = [p for p in ep["path"].split("/")
-                         if p and not p.startswith("{") and p.lower() not in ("api","v1","v2","v3")]
-                seg = parts[0].title() if parts else "API"
-                _ep_groups.setdefault(seg, 0)
-                _ep_groups[seg] += 1
-            for seg, cnt in list(_ep_groups.items())[:5]:
-                lines.append(f'        {_safe(seg)}Handler["{seg} Handler ({cnt} routes)"]')
-        lines.append('    end')
-        lines.append("")
+        # Check classes defined in this file
+        for cls in item.get("classes", []):
+            if cls in seen_classes or not cls:
+                continue
+            seen_classes.add(cls)
+            lower_cls = cls.lower()
+            
+            if any(k in lower_cls for k in ("controller", "handler", "router", "endpoint")) or is_presentation:
+                if cls not in controllers:
+                    controllers.append(cls)
+            elif any(k in lower_cls for k in ("service", "manager", "usecase", "facade", "workflow")) or is_logic:
+                if cls not in services:
+                    services.append(cls)
+            elif any(k in lower_cls for k in ("repository", "repo", "dao", "store", "gateway", "adapter", "context")) or is_data:
+                if cls not in repositories:
+                    repositories.append(cls)
 
-    # ── Business Logic / Service Layer ───────────────────────────────
+        # Fallback if no classes defined but the file itself maps to a layer
+        if not item.get("classes"):
+            stem = Path(file_path).stem
+            if stem not in seen_components and stem:
+                seen_components.add(stem)
+                if is_presentation or any(k in file_lower for k in ("controller", "handler", "router", "endpoint")):
+                    controllers.append(stem)
+                elif is_logic or any(k in file_lower for k in ("service", "manager", "usecase", "facade", "workflow")):
+                    services.append(stem)
+                elif is_data or any(k in file_lower for k in ("repository", "repo", "dao", "store", "gateway", "adapter", "context")):
+                    repositories.append(stem)
+
+    controllers  = controllers[:5]
+    services     = services[:5]
+    repositories = repositories[:4]
+    entities     = [e["name"] for e in (db_schema or {}).get("entities", [])[:5]]
+
+    layers = []
+    edges  = []
+
+    # Layer 0: Client
+    layers.append({
+        "id": "client",
+        "label": "User / Client",
+        "color": "#6e6e73",
+        "icon": "user",
+        "nodes": [{"id": "client_node", "label": "Client"}],
+    })
+
+    # Layer 1: API / Controllers
+    api_nodes = []
+    if controllers:
+        api_nodes = [{"id": _safe(c), "label": c} for c in controllers]
+    elif endpoints:
+        ep_groups: dict = {}
+        for ep in endpoints[:6]:
+            parts = [p for p in ep["path"].split("/")
+                     if p and not p.startswith("{") and p.lower() not in ("api", "v1", "v2", "v3")]
+            seg = parts[0].title() if parts else "API"
+            ep_groups.setdefault(seg, 0)
+            ep_groups[seg] += 1
+        api_nodes = [{"id": _safe(s) + "_handler", "label": f"{s} ({c} routes)"}
+                     for s, c in list(ep_groups.items())[:5]]
+
+    if api_nodes:
+        layers.append({
+            "id": "api",
+            "label": "API / Presentation Layer",
+            "color": "#0071e3",
+            "icon": "api",
+            "nodes": api_nodes,
+        })
+        for n in api_nodes[:3]:
+            edges.append({"from": "client_node", "to": n["id"], "label": "HTTP"})
+
+    # Layer 2: Service / Business Logic
     if services:
-        lines.append('    subgraph BL["⚙️ Business Logic / Service Layer"]')
-        for s in services:
-            lines.append(f'        {_safe(s)}["{s}"]')
-        lines.append('    end')
-        lines.append("")
+        svc_nodes = [{"id": _safe(s), "label": s} for s in services]
+        layers.append({
+            "id": "service",
+            "label": "Business Logic / Service Layer",
+            "color": "#30d158",
+            "icon": "service",
+            "nodes": svc_nodes,
+        })
+        for i, an in enumerate(api_nodes[:4]):
+            sn = svc_nodes[min(i, len(svc_nodes) - 1)]
+            edges.append({"from": an["id"], "to": sn["id"], "label": "calls"})
 
-    # ── Data Access Layer ────────────────────────────────────────────
+    # Layer 3: Repository / Data Access
     if repositories:
-        lines.append('    subgraph DAL["🗄️ Data Access / Repository Layer"]')
-        for r in repositories:
-            lines.append(f'        {_safe(r)}["{r}"]')
-        lines.append('    end')
-        lines.append("")
+        repo_nodes = [{"id": _safe(r), "label": r} for r in repositories]
+        layers.append({
+            "id": "repo",
+            "label": "Data Access / Repository Layer",
+            "color": "#ff9f0a",
+            "icon": "repo",
+            "nodes": repo_nodes,
+        })
+        src_layer = services if services else (controllers if controllers else [])
+        for i, s in enumerate(src_layer[:4]):
+            rn = repo_nodes[min(i, len(repo_nodes) - 1)]
+            edges.append({"from": _safe(s), "to": rn["id"], "label": "data ops"})
     elif entities:
-        lines.append('    subgraph DAL["🗄️ Data Access / Repository Layer"]')
-        lines.append('        ORM["ORM / Data Mapper"]')
-        lines.append('    end')
-        lines.append("")
+        orm_nodes = [{"id": "orm_node", "label": "ORM / Data Mapper"}]
+        layers.append({
+            "id": "repo",
+            "label": "Data Access Layer",
+            "color": "#ff9f0a",
+            "icon": "repo",
+            "nodes": orm_nodes,
+        })
 
-    # ── Database ─────────────────────────────────────────────────────
+    # Layer 4: Database entities
     if entities:
-        lines.append('    subgraph DB["🗃️ Database"]')
-        for e in entities:
-            lines.append(f'        db_{_safe(e)}[("{e}")]')
-        lines.append('    end')
-        lines.append("")
+        db_nodes = [{"id": "db_" + _safe(e), "label": e} for e in entities]
+        layers.append({
+            "id": "database",
+            "label": "Database",
+            "color": "#bf5af2",
+            "icon": "db",
+            "nodes": db_nodes,
+        })
+        repo_layer = next((l for l in layers if l["id"] == "repo"), None)
+        if repo_layer:
+            for i, rn in enumerate(repo_layer["nodes"][:3]):
+                dn = db_nodes[min(i, len(db_nodes) - 1)]
+                edges.append({"from": rn["id"], "to": dn["id"], "label": "SQL/ORM"})
 
-    # ── External integrations (from tech stack) ──────────────────────
+    # Layer 5: External Services (from tech stack)
     ext_map = {
-        "redis":    ("cache", "🔴 Redis Cache"),
-        "kafka":    ("queue", "📨 Kafka / MQ"),
-        "rabbitmq": ("queue", "📨 RabbitMQ"),
-        "email":    ("email", "📧 Email / SMTP"),
-        "smtp":     ("email", "📧 Email / SMTP"),
-        "s3":       ("storage", "☁️ Cloud Storage"),
-        "azure":    ("cloud",   "☁️ Azure"),
-        "aws":      ("cloud",   "☁️ AWS"),
-        "stripe":   ("payment", "💳 Payment Gateway"),
-        "paypal":   ("payment", "💳 Payment Gateway"),
-        "oauth":    ("auth",    "🔐 Auth / OAuth"),
-        "jwt":      ("auth",    "🔐 Auth / JWT"),
+        "redis":    ("cache",   "Redis Cache"),
+        "kafka":    ("queue",   "Kafka / MQ"),
+        "rabbitmq": ("queue",   "RabbitMQ"),
+        "email":    ("email",   "Email / SMTP"),
+        "smtp":     ("email",   "Email / SMTP"),
+        "s3":       ("storage", "Cloud Storage"),
+        "azure":    ("cloud",   "Azure"),
+        "aws":      ("cloud",   "AWS"),
+        "stripe":   ("payment", "Payment Gateway"),
+        "paypal":   ("payment", "Payment Gateway"),
+        "oauth":    ("auth",    "Auth / OAuth"),
+        "jwt":      ("auth",    "Auth / JWT"),
     }
     shown_ext: set = set()
     ext_nodes = []
@@ -764,56 +885,395 @@ def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
     for kw, (group, label) in ext_map.items():
         if kw in stack_lower and group not in shown_ext:
             shown_ext.add(group)
-            node_id = f"ext_{group}"
-            ext_nodes.append((node_id, label))
+            ext_nodes.append({"id": "ext_" + group, "label": label})
 
-    if ext_nodes:
-        lines.append('    subgraph EXT["🔌 External Services"]')
-        for nid, label in ext_nodes[:4]:
-            lines.append(f'        {nid}["{label}"]')
-        lines.append('    end')
-        lines.append("")
+    if ext_nodes[:4]:
+        layers.append({
+            "id": "external",
+            "label": "External Services",
+            "color": "#ff453a",
+            "icon": "ext",
+            "nodes": ext_nodes[:4],
+        })
+        # Connect service layer (or API layer) to external services
+        src_ids = ([_safe(s) for s in services[:2]] or
+                   [n["id"] for n in api_nodes[:2]])
+        for sid in src_ids:
+            for en in ext_nodes[:2]:
+                edges.append({"from": sid, "to": en["id"], "label": "integrates"})
 
-    # ── Connections ──────────────────────────────────────────────────
-    # Client → controllers (or handlers)
-    if controllers:
-        for c in controllers[:3]:
-            lines.append(f'    Client -->|"HTTP request"| {_safe(c)}')
-    elif endpoints:
-        first_handler = _safe(list(_ep_groups.keys())[0]) + "Handler" if '_ep_groups' in dir() else "API_Entry"
-        lines.append(f'    Client -->|"HTTP request"| {first_handler}')
-    lines.append("")
+    return {"layers": layers, "edges": edges}
 
-    # controllers → services
-    if controllers and services:
-        for i, c in enumerate(controllers[:4]):
-            svc = services[min(i, len(services) - 1)]
-            lines.append(f'    {_safe(c)} -->|"calls"| {_safe(svc)}')
-        lines.append("")
 
-    # services → repositories
-    if services and (repositories or entities):
-        for i, s in enumerate(services[:4]):
-            if repositories:
-                repo = repositories[min(i, len(repositories) - 1)]
-                lines.append(f'    {_safe(s)} -->|"data ops"| {_safe(repo)}')
+def generate_block_diagram_dot(block_diagram_data):
+    """Generate a Graphviz DOT string for the block diagram layers.
+
+    Args:
+        block_diagram_data (dict): Dict with "layers" and "edges" lists.
+
+    Returns:
+        str: Graphviz DOT representation of block diagram.
+    """
+    if not block_diagram_data or "layers" not in block_diagram_data:
+        return "digraph G { A [label=\"No diagram generated\"]; }"
+        
+    dot = [
+        "digraph G {",
+        "  rankdir=TB;",
+        "  splines=ortho;",
+        "  nodesep=0.4;",
+        "  ranksep=0.5;",
+        "  bgcolor=\"transparent\";",
+        "  node [shape=box, style=\"filled,rounded\", fontname=\"Helvetica\", fontsize=11, fillcolor=\"#f5f5f7\", fontcolor=\"#1d1d1f\", penwidth=1.5];",
+        "  edge [color=\"#8e8e93\", fontname=\"Helvetica\", fontsize=9, fontcolor=\"#8e8e93\", arrowhead=vee, arrowsize=0.7];"
+    ]
+    
+    layers = block_diagram_data.get("layers", [])
+    edges = block_diagram_data.get("edges", [])
+    
+    for i, layer in enumerate(layers):
+        dot.append(f"  subgraph cluster_{i} {{")
+        dot.append(f"    label = \"{layer.get('label', '')}\";")
+        dot.append(f"    color = \"{layer.get('color', '#aeaeb2')}\";")
+        dot.append(f"    style = \"dashed,rounded\";")
+        dot.append(f"    fontname = \"Helvetica\";")
+        dot.append(f"    fontsize = 12;")
+        dot.append(f"    fontcolor = \"{layer.get('color', '#1d1d1f')}\";")
+        dot.append(f"    penwidth = 2.0;")
+        
+        for node in layer.get("nodes", []):
+            dot.append(f"    \"{node['id']}\" [label=\"{node.get('label', '')}\", fillcolor=\"{layer.get('color', '#f5f5f7')}\", fontcolor=\"#ffffff\", style=\"filled,rounded\", penwidth=0];")
+        dot.append("  }")
+        
+    for edge in edges:
+        dot.append(f"  \"{edge['from']}\" -> \"{edge['to']}\" [label=\"{edge.get('label', '')}\"];")
+        
+    dot.append("}")
+    return "\n".join(dot)
+
+
+def generate_block_diagram_svg(block_diagram_data):
+    """Generate a premium, responsive SVG image for the layered block diagram.
+
+    Args:
+        block_diagram_data (dict): Layer and edge data structures.
+
+    Returns:
+        str: Self-contained XML SVG content.
+    """
+    if not block_diagram_data or "layers" not in block_diagram_data:
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30">No diagram generated</text></svg>'
+
+    layers = block_diagram_data.get("layers", [])
+    edges = block_diagram_data.get("edges", [])
+
+    layer_height = 100
+    layer_gap = 40
+    total_layers = len(layers)
+    total_height = 20 + total_layers * (layer_height + layer_gap) - layer_gap + 20
+
+    svg_parts = [
+        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="700" height="{total_height}" viewBox="0 0 700 {total_height}">',
+        '  <style>',
+        '    .layer-bg { fill: #f5f5f7; stroke: #e5e5ea; stroke-width: 1.5; }',
+        '    .node-pill { fill: #ffffff; stroke: #d1d1d6; stroke-width: 1.5; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.03)); }',
+        '    .node-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; fill: #1d1d1f; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }',
+        '    .layer-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }',
+        '    .connector-line { stroke: #aeaeb2; stroke-width: 2; stroke-dasharray: 4 3; }',
+        '    .connector-arrow { fill: #aeaeb2; }',
+        '    .connector-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 9px; fill: #8e8e93; font-weight: 600; text-anchor: start; }',
+        '  </style>',
+    ]
+
+    for idx, layer in enumerate(layers):
+        y = 20 + idx * (layer_height + layer_gap)
+        color = layer.get("color", "#8e8e93")
+        label = layer.get("label", "Layer").upper()
+        nodes = layer.get("nodes", [])
+
+        # Background card
+        svg_parts.append(f'  <!-- Layer {idx}: {label} -->')
+        svg_parts.append(f'  <rect x="25" y="{y}" width="650" height="{layer_height}" rx="12" class="layer-bg" />')
+        
+        # Color indicator path
+        svg_parts.append(f'  <path d="M 25 {y + 6} L 25 {y + layer_height - 6}" stroke="{color}" stroke-width="5" stroke-linecap="round" />')
+        
+        # Layer title
+        svg_parts.append(f'  <text x="40" y="{y + 24}" fill="{color}" class="layer-title">{label}</text>')
+
+        # Node pills
+        if nodes:
+            num_nodes = len(nodes)
+            spacing = min(130, 580 // (num_nodes - 1)) if num_nodes > 1 else 130
+            y_offset = y + 58
+            pill_w = 114
+            pill_h = 32
+            
+            for j, node in enumerate(nodes):
+                node_x_center = 350 - (num_nodes - 1) * spacing // 2 + j * spacing
+                pill_x = node_x_center - pill_w // 2
+                pill_y = y_offset - pill_h // 2
+                node_lbl = node.get("label", "")
+                
+                svg_parts.append(f'  <rect x="{pill_x}" y="{pill_y}" width="{pill_w}" height="{pill_h}" rx="8" class="node-pill" />')
+                # Bullet dot indicator
+                svg_parts.append(f'  <circle cx="{pill_x + 12}" cy="{y_offset}" r="3.5" fill="{color}" />')
+                # Text
+                svg_parts.append(f'  <text x="{node_x_center + 6}" y="{y_offset + 1}" class="node-text">{node_lbl}</text>')
+
+        # Connector
+        if idx < total_layers - 1:
+            current_node_ids = {n["id"] for n in nodes}
+            next_nodes = layers[idx+1].get("nodes", [])
+            next_node_ids = {n["id"] for n in next_nodes}
+            
+            layer_edge_labels = []
+            for edge in edges:
+                if edge.get("from") in current_node_ids and edge.get("to") in next_node_ids:
+                    lbl = edge.get("label", "")
+                    if lbl and lbl not in layer_edge_labels:
+                        layer_edge_labels.append(lbl)
+            
+            connector_label = f"{', '.join(layer_edge_labels)}" if layer_edge_labels else ""
+            y_connector_start = y + layer_height
+            y_connector_end = y_connector_start + layer_gap
+            
+            svg_parts.append(f'  <!-- Connector Layer {idx} -> {idx+1} -->')
+            svg_parts.append(f'  <line x1="350" y1="{y_connector_start}" x2="350" y2="{y_connector_end - 6}" class="connector-line" />')
+            svg_parts.append(f'  <polygon points="346,{y_connector_end - 6} 354,{y_connector_end - 6} 350,{y_connector_end}" class="connector-arrow" />')
+            if connector_label:
+                svg_parts.append(f'  <text x="365" y="{y_connector_start + layer_gap // 2 + 3}" class="connector-text">{connector_label}</text>')
+
+    svg_parts.append('</svg>')
+    return "\n".join(svg_parts)
+
+
+def generate_dep_graph_svg(dep_graph_data):
+    """Generate a premium, responsive SVG image for the module dependency graph.
+    Uses a pure-Python force-directed layout that is fast and completely self-contained.
+
+    Args:
+        dep_graph_data (dict): Dependency graph with "nodes" and "edges" lists.
+
+    Returns:
+        str: Self-contained XML SVG content.
+    """
+    if not dep_graph_data or "nodes" not in dep_graph_data:
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30">No graph generated</text></svg>'
+
+    nodes = dep_graph_data.get("nodes", [])
+    edges = dep_graph_data.get("edges", [])
+
+    if not nodes:
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30">No nodes in graph</text></svg>'
+
+    import math
+    import random
+
+    # Seed random for a deterministic layout of the same graph
+    random.seed(42)
+
+    width, height = 800, 600
+    iterations = 100
+    num_nodes = len(nodes)
+
+    # Initialize positions along a circle to avoid overlapping starts
+    pos = {}
+    for i, node in enumerate(nodes):
+        angle = i * (2 * math.pi / max(1, num_nodes))
+        r = 180 + (i % 3) * 20
+        pos[node["id"]] = [
+            width / 2 + r * math.cos(angle),
+            height / 2 + r * math.sin(angle)
+        ]
+
+    # Force-directed layout parameters
+    k = math.sqrt((700 * 500) / max(1, num_nodes))
+    c_rep = 0.8
+    c_att = 1.2
+    t = 80.0
+    dt = t / iterations
+
+    for _ in range(iterations):
+        disp = {n["id"]: [0.0, 0.0] for n in nodes}
+
+        # Repulsive forces between all nodes
+        for i in range(num_nodes):
+            n1 = nodes[i]["id"]
+            for j in range(num_nodes):
+                if i == j:
+                    continue
+                n2 = nodes[j]["id"]
+                dx = pos[n1][0] - pos[n2][0]
+                dy = pos[n1][1] - pos[n2][1]
+                dist = math.hypot(dx, dy)
+                if dist == 0:
+                    dist = 0.1
+                f = (k * k * c_rep) / dist
+                disp[n1][0] += (dx / dist) * f
+                disp[n1][1] += (dy / dist) * f
+
+        # Attractive forces along edges
+        for edge in edges:
+            u, v = edge["from"], edge["to"]
+            if u not in pos or v not in pos:
+                continue
+            dx = pos[u][0] - pos[v][0]
+            dy = pos[u][1] - pos[v][1]
+            dist = math.hypot(dx, dy)
+            if dist == 0:
+                dist = 0.1
+            f = (dist * dist * c_att) / k
+            disp[u][0] -= (dx / dist) * f
+            disp[u][1] -= (dy / dist) * f
+            disp[v][0] += (dx / dist) * f
+            disp[v][1] += (dy / dist) * f
+
+        # Apply displacement limited by temperature
+        for n in nodes:
+            nid = n["id"]
+            dx, dy = disp[nid]
+            dist = math.hypot(dx, dy)
+            if dist > 0:
+                limited_dist = min(dist, t)
+                pos[nid][0] += (dx / dist) * limited_dist
+                pos[nid][1] += (dy / dist) * limited_dist
+
+            pos[nid][0] = max(60, min(width - 60, pos[nid][0]))
+            pos[nid][1] = max(40, min(height - 40, pos[nid][1]))
+
+        t -= dt
+
+    # Pre-calculate pill widths for exact boundary drawing
+    pill_widths = {}
+    pill_height = 24
+    for n in nodes:
+        lbl = n.get("label", "")
+        pill_widths[n["id"]] = max(70, len(lbl) * 7 + 16)
+
+    # Normalize positions to fit the canvas perfectly with comfortable, width-aware margins
+    xs = [pos[n["id"]][0] for n in nodes]
+    ys = [pos[n["id"]][1] for n in nodes]
+
+    if len(nodes) > 1:
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+
+        span_x = max_x - min_x
+        span_y = max_y - min_y
+
+        for n in nodes:
+            nid = n["id"]
+            w = pill_widths[nid]
+            
+            # Constrain horizontally so that the pill is always fully visible (with a 15px margin)
+            min_allowed_x = w / 2 + 15
+            max_allowed_x = width - (w / 2 + 15)
+            
+            if span_x > 0:
+                pos_pct_x = (pos[nid][0] - min_x) / span_x
+                pos[nid][0] = min_allowed_x + pos_pct_x * (max_allowed_x - min_allowed_x)
             else:
-                lines.append(f'    {_safe(s)} -->|"data ops"| ORM')
-        lines.append("")
+                pos[nid][0] = width / 2
 
-    # repositories → DB
-    if repositories and entities:
-        for r in repositories[:3]:
-            ent = entities[0]
-            lines.append(f'    {_safe(r)} -->|"SQL / ORM"| db_{_safe(ent)}')
-    elif entities:
-        lines.append(f'    ORM -->|"SQL / ORM"| db_{_safe(entities[0])}')
-    lines.append("")
+            # Constrain vertically so that the pill is always fully visible (with a 20px margin)
+            min_allowed_y = pill_height / 2 + 20
+            max_allowed_y = height - (pill_height / 2 + 20)
+            
+            if span_y > 0:
+                pos_pct_y = (pos[nid][1] - min_y) / span_y
+                pos[nid][1] = min_allowed_y + pos_pct_y * (max_allowed_y - min_allowed_y)
+            else:
+                pos[nid][1] = height / 2
+    else:
+        for n in nodes:
+            pos[n["id"]] = [width / 2, height / 2]
 
-    # services → external
-    if services and ext_nodes:
-        svc0 = _safe(services[0])
-        for nid, _ in ext_nodes[:2]:
-            lines.append(f'    {svc0} -->|"uses"| {nid}')
 
-    return "\n".join(lines)
+
+    svg_parts = [
+        '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">',
+        '  <defs>',
+        '    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">',
+        '      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#8e8e93" />',
+        '    </marker>',
+        '  </defs>',
+        '  <rect width="100%" height="100%" fill="#fafafa" rx="16" stroke="#e5e5ea" stroke-width="1.5" />',
+        '  <style>',
+        '    .edge-line { stroke: #aeaeb2; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }',
+        '    .node-rect { stroke-width: 1.5; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.03)); }',
+        '    .node-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }',
+        '    .graph-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #1d1d1f; }',
+        '  </style>',
+        '  <text x="30" y="35" class="graph-title">Module Dependency Graph</text>',
+    ]
+
+    # Draw edge lines connecting the pill boundaries exactly
+    for edge in edges:
+        u_id, v_id = edge["from"], edge["to"]
+        if u_id not in pos or v_id not in pos:
+            continue
+
+        # Find node dicts
+        u_node = next((n for n in nodes if n["id"] == u_id), None)
+        v_node = next((n for n in nodes if n["id"] == v_id), None)
+        if not u_node or not v_node:
+            continue
+
+        x1, y1 = pos[u_id]
+        x2, y2 = pos[v_id]
+
+        dx = x2 - x1
+        dy = y2 - y1
+        d = math.hypot(dx, dy)
+        if d > 0:
+            ux = dx / d
+            uy = dy / d
+
+            w1 = pill_widths[u_id]
+            h1 = pill_height
+            offset1 = min((w1 / 2) / max(0.001, abs(ux)), (h1 / 2) / max(0.001, abs(uy)))
+
+            w2 = pill_widths[v_id]
+            h2 = pill_height
+            offset2 = min((w2 / 2) / max(0.001, abs(ux)), (h2 / 2) / max(0.001, abs(uy)))
+
+            x_start = x1 + ux * offset1
+            y_start = y1 + uy * offset1
+            x_end = x2 - ux * (offset2 + 7)  # leave space for the arrow head marker
+            y_end = y2 - uy * (offset2 + 7)
+
+            svg_parts.append(f'  <line x1="{x_start:.1f}" y1="{y_start:.1f}" x2="{x_end:.1f}" y2="{y_end:.1f}" class="edge-line" />')
+
+    # Draw node pills
+    for n in nodes:
+        lbl = n.get("label", "")
+        nid = n["id"]
+        x, y = pos[nid]
+        w = pill_widths[nid]
+        h = pill_height
+
+        rx = x - w / 2
+        ry = y - h / 2
+
+        # Role-based color matching
+        if "controller" in lbl.lower() or "handler" in lbl.lower():
+            fill, stroke, font = "#0071e3", "#005bb5", "#ffffff"
+        elif "service" in lbl.lower() or "manager" in lbl.lower():
+            fill, stroke, font = "#30d158", "#1a8c3a", "#ffffff"
+        elif "repository" in lbl.lower() or "repo" in lbl.lower():
+            fill, stroke, font = "#ff9f0a", "#c47900", "#ffffff"
+        elif "entity" in lbl.lower() or "model" in lbl.lower() or "dto" in lbl.lower() or "domain" in lbl.lower():
+            fill, stroke, font = "#af52de", "#7a22b8", "#ffffff"
+        else:
+            fill, stroke, font = "#ffffff", "#d1d1d6", "#1d1d1f"
+
+        svg_parts.append(f'  <!-- Node {nid}: {lbl} -->')
+        svg_parts.append(f'  <rect x="{rx:.1f}" y="{ry:.1f}" width="{w}" height="{h}" rx="6" fill="{fill}" stroke="{stroke}" class="node-rect" />')
+        svg_parts.append(f'  <text x="{x:.1f}" y="{y + 1:.1f}" fill="{font}" class="node-text">{lbl}</text>')
+
+    svg_parts.append('</svg>')
+    return "\n".join(svg_parts)
+

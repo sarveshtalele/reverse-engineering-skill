@@ -2,24 +2,24 @@
 Pipeline
 ========
 Orchestrates the complete reverse engineering pipeline from repository URL
-to three output files.
+to output files.  **No API keys or LLM accounts required.**
 
 Entry point: :func:`run_pipeline`.
 
 Pipeline stages:
 
-1. **Clone** — shallow-clone the repository with :func:`clone_repo`.
-2. **Load** — walk source files with :mod:`engine.loaders`.
-3. **Parse** — extract structural elements with :mod:`engine.parsers`
+1. **Clone**   — shallow-clone the repository with :func:`clone_repo`.
+2. **Load**    — walk source files with :mod:`engine.loaders`.
+3. **Parse**   — extract structural elements with :mod:`engine.parsers`
    (smart priority cap for large repos).
 4. **Analyze** — compute metrics, dependency graph, API endpoints, dead code,
    and tech stack with :mod:`engine.analyzer`.
-5. **AI Analysis** — generate executive summary, modernisation roadmap, and
-   business logic analysis with :mod:`engine.ai_analysis` (graceful fallback
-   when API unavailable).
+5. **Heuristics** — generate executive summary, modernisation roadmap, and
+   business logic analysis with :mod:`engine.ai_analysis` using pure static
+   heuristics (no API calls).
 6. **Generate** — build SDD JSON, HTML dashboard, and Markdown report with
    :mod:`engine.generators`.
-7. **Write** — persist all outputs via :class:`~engine.output_manager.OutputManager`
+7. **Write**   — persist all outputs via :class:`~engine.output_manager.OutputManager`
    and emit a ``manifest.json`` with run metrics.
 8. **Cleanup** — remove the temporary clone directory.
 """
@@ -35,7 +35,8 @@ from engine.parsers     import parse_file
 from engine.analyzer    import (
     generate_report,
     build_dependency_map,
-    generate_mermaid,
+    generate_dep_graph_data,
+    generate_graphviz_dot,
     extract_api_endpoints,
     generate_openapi_spec,
     detect_dead_code,
@@ -46,6 +47,9 @@ from engine.analyzer    import (
     detect_database_schema,
     suggest_microservice_data_boundaries,
     generate_block_diagram,
+    generate_block_diagram_dot,
+    generate_block_diagram_svg,
+    generate_dep_graph_svg,
 )
 from engine.ai_analysis import (
     ai_executive_summary,
@@ -103,40 +107,32 @@ def repo_name_from_url(url):
     return re.sub(r'[^\w\-]', '_', name)
 
 
-def run_pipeline(repo_url, skip_ai=False):
+def run_pipeline(repo_url):
     """Execute the full reverse engineering pipeline for *repo_url*.
 
-    Clones the repository, analyses the source code, optionally calls the AI
-    analysis layer, generates five output files (SDD JSON, HTML dashboard,
-    Markdown report, quality evaluation, manifest), and prints a formatted
-    summary to stdout.
+    Clones the repository, analyses the source code with pure static
+    heuristics (no API keys required), generates five output files
+    (SDD JSON, HTML dashboard, Markdown report, quality evaluation,
+    manifest), and prints a concise progress summary to stdout.
 
     The temporary clone directory is deleted in the ``finally`` block even
     if an exception occurs during analysis.
 
     Args:
         repo_url (str): GitHub repository URL to analyse.
-        skip_ai (bool): When ``True``, skip all Anthropic API calls and use
-            deterministic heuristic fallbacks for executive summary,
-            modernisation roadmap, and business logic analysis.  Defaults to
-            ``False``.  Set to ``True`` when:
-
-            - No ``ANTHROPIC_API_KEY`` is available.
-            - Using GitHub Copilot Chat as the AI engine (recommended Copilot
-              workflow: run with ``skip_ai=True``, then read the SDD JSON in
-              Copilot Chat for AI-powered narrative).
-            - Faster runs without API latency are preferred.
 
     Returns:
         None
 
     Side effects:
         - Creates ``outputs/{repo_name}/`` with five files.
-        - Prints progress and a summary table to stdout.
+        - Prints stage progress and final file paths to stdout.
+        - All analysis content (AI summary, roadmap, business logic) is
+          written to the report and dashboard files — not to stdout.
     """
     print(f"\n{'='*60}")
-    print(f"  Reverse Engineer Skill")
-    print(f"  Repository: {repo_url}")
+    print(f"  Reverse Engineer Skill  (API-key-free edition)")
+    print(f"  Repository : {repo_url}")
     print(f"{'='*60}\n")
 
     repo_name = repo_name_from_url(repo_url)
@@ -213,7 +209,8 @@ def run_pipeline(repo_url, skip_ai=False):
         report   = generate_report(parsed)
         dep_map  = build_dependency_map(parsed)
         top_mods = find_top_modules(dep_map)
-        mermaid  = generate_mermaid(parsed)
+        dep_graph = generate_dep_graph_data(parsed)
+        dep_graph_dot = generate_graphviz_dot(dep_graph)
 
         # ----------------------------------------------------------------
         # 5. API & dead code
@@ -224,7 +221,8 @@ def run_pipeline(repo_url, skip_ai=False):
         dead_code    = detect_dead_code(parsed)
         tech_stack   = detect_tech_stack(parsed, repo_path)
         db_schema    = detect_database_schema(parsed)
-        block_diagram = generate_block_diagram(parsed, endpoints, db_schema, tech_stack)
+        block_diagram_data = generate_block_diagram(parsed, endpoints, db_schema, tech_stack)
+        block_diagram_dot = generate_block_diagram_dot(block_diagram_data)
         print(
             f"      {len(endpoints)} API endpoints | "
             f"{len(dead_code['dead_files'])} dead files | "
@@ -236,44 +234,22 @@ def run_pipeline(repo_url, skip_ai=False):
         )
 
         # ----------------------------------------------------------------
-        # 6. AI analysis (skipped when skip_ai=True — heuristics used)
+        # 6. Static heuristic analysis (no API keys required)
         # ----------------------------------------------------------------
-        if skip_ai:
-            print("[6/8] AI analysis skipped (--no-ai flag). Using heuristic fallbacks.")
-            print("      Tip: Open Copilot Chat → attach 'Reverse Engineer a GitHub Repo'")
-            print("           prompt to get AI narrative from GitHub Copilot.")
-        else:
-            print("[6/8] Running AI analysis (Claude claude-sonnet-4-6)...")
-
-        # All three functions implement graceful heuristic fallbacks
-        # automatically when ANTHROPIC_API_KEY is absent or skip_ai=True.
-        import os as _os
-        _saved_key = _os.environ.get("ANTHROPIC_API_KEY")
-        if skip_ai:
-            _os.environ.pop("ANTHROPIC_API_KEY", None)
+        print("[6/8] Running static heuristic analysis...")
 
         summary         = ai_executive_summary(parsed, report, repo_name)
         modernization   = ai_modernization_roadmap(parsed, report, repo_name, tech_stack)
         business_logic  = ai_business_logic_analysis(
             parsed, endpoints, db_schema, report, repo_name
         )
-
-        if skip_ai and _saved_key:
-            _os.environ["ANTHROPIC_API_KEY"] = _saved_key  # restore
         platform_str    = detect_platform(parsed)
         arch_layers     = detect_architecture_layers(parsed)
         data_boundaries = suggest_microservice_data_boundaries(db_schema, modernization)
         print(
-            f"      Architecture: {summary.get('architecture_pattern')} | "
-            f"Priority: {summary.get('modernization_priority')}"
-        )
-        print(
-            f"      Business domain: {business_logic.get('business_domain', 'N/A')} | "
-            f"Workflows: {len(business_logic.get('core_workflows', []))}"
-        )
-        print(
-            f"      Platform: {platform_str} | Layers: {len(arch_layers)} | "
-            f"Data boundaries: {len(data_boundaries)}"
+            f"      Pattern: {summary.get('architecture_pattern')} | "
+            f"Priority: {summary.get('modernization_priority')} | "
+            f"Domain: {business_logic.get('business_domain', 'N/A')}"
         )
 
         # ----------------------------------------------------------------
@@ -285,26 +261,27 @@ def run_pipeline(repo_url, skip_ai=False):
         # File 1: SDD JSON
         sdd_data = generate_sdd(
             repo_name, repo_url, parsed, report, dep_map, endpoints,
-            openapi_spec, dead_code, mermaid, tech_stack, summary,
+            openapi_spec, dead_code, dep_graph_dot, tech_stack, summary,
             modernization, repo_path,
             db_schema=db_schema,
             data_boundaries=data_boundaries,
             business_logic=business_logic,
-            block_diagram=block_diagram,
+            block_diagram=block_diagram_dot,
         )
         sdd_path = om.write_json(f"{repo_name}_sdd.json", sdd_data)
         print(f"      [ok] SDD JSON -> {sdd_path}")
 
         # File 2: HTML Dashboard
         html_content = generate_html_dashboard(
-            repo_name, repo_url, report, endpoints, dead_code, mermaid,
+            repo_name, repo_url, report, endpoints, dead_code, dep_graph_dot,
             tech_stack, summary, modernization, top_mods,
             platform=platform_str,
             arch_layers=arch_layers,
             db_schema=db_schema,
             data_boundaries=data_boundaries,
             business_logic=business_logic,
-            block_diagram=block_diagram,
+            block_diagram=block_diagram_data,
+            dep_graph=dep_graph,
         )
         html_path = om.write_text(f"{repo_name}_dashboard.html", html_content)
         print(f"      [ok] HTML Dashboard -> {html_path}")
@@ -312,15 +289,25 @@ def run_pipeline(repo_url, skip_ai=False):
         # File 3: Markdown Report
         md_content = generate_md_report(
             repo_name, repo_url, report, parsed, dep_map, endpoints,
-            openapi_spec, dead_code, mermaid, tech_stack, summary,
+            openapi_spec, dead_code, dep_graph_dot, tech_stack, summary,
             modernization, top_mods,
             db_schema=db_schema,
             data_boundaries=data_boundaries,
             business_logic=business_logic,
-            block_diagram=block_diagram,
+            block_diagram=block_diagram_data,
         )
         md_path = om.write_text(f"{repo_name}_report.md", md_content)
         print(f"      [ok] MD Report -> {md_path}")
+
+        # File 4: Block Diagram SVG
+        svg_content = generate_block_diagram_svg(block_diagram_data)
+        svg_path = om.write_text(f"{repo_name}_block_diagram.svg", svg_content)
+        print(f"      [ok] Block Diagram SVG -> {svg_path}")
+
+        # File 5: Dependency Graph SVG
+        dep_svg_content = generate_dep_graph_svg(dep_graph)
+        dep_svg_path = om.write_text(f"{repo_name}_dependency_graph.svg", dep_svg_content)
+        print(f"      [ok] Dependency Graph SVG -> {dep_svg_path}")
 
         # Manifest
         primary_lang = (
@@ -347,7 +334,7 @@ def run_pipeline(repo_url, skip_ai=False):
             endpoints=endpoints,
             dead_code=dead_code,
             dep_map=dep_map,
-            mermaid_code=mermaid,
+            graphviz_code=dep_graph_dot,
             tech_stack=tech_stack,
             summary=summary,
             modernization=modernization,
@@ -364,28 +351,16 @@ def run_pipeline(repo_url, skip_ai=False):
         # ----------------------------------------------------------------
         print("\n[9/9] Complete!\n")
         print(f"{'='*60}")
-        print(f"  [DONE] Reverse engineering complete for: {repo_name}")
+        print(f"  DONE  {repo_name}")
         print(f"{'='*60}")
+        print(f"  Files analyzed : {report['total_files']}  |  Classes : {report['total_classes']}  |  Methods : {report['total_methods']}")
+        print(f"  API endpoints  : {len(endpoints)}  |  Dead files : {len(dead_code['dead_files'])}  |  Language : {primary_lang}")
+        print(f"  Priority       : {summary.get('modernization_priority', 'N/A')}  |  Domain : {business_logic.get('business_domain', 'N/A')}")
         print(f"\n  Output files:")
         for line in om.summary_lines():
             print(line)
-        print(f"\n  Analysis summary:")
-        print(f"     Files analyzed    : {report['total_files']}")
-        print(f"     Classes found     : {report['total_classes']}")
-        print(f"     Methods found     : {report['total_methods']}")
-        print(f"     API endpoints     : {len(endpoints)}")
-        print(f"     Dead code files   : {len(dead_code['dead_files'])}")
-        print(f"     Primary language  : {primary_lang}")
-        print(f"     Tech stack        : {', '.join(tech_stack[:4]) or 'N/A'}")
-        print(f"\n  AI priority         : {summary.get('modernization_priority', 'N/A')}")
-        print(f"\n  Quality evaluation:")
-        for line in evaluation["summary_lines"]:
-            print(line)
-        if evaluation["recommendations"]:
-            print(f"\n  Recommendations:")
-            for rec in evaluation["recommendations"][:3]:
-                print(f"     • {rec}")
-        print(f"\n{'='*60}\n")
+        print(f"\n  Open the .md report or .html dashboard for full analysis details.")
+        print(f"{'='*60}\n")
 
     finally:
         try:

@@ -30,22 +30,27 @@ If the URL is missing or malformed, ask:
 
 ---
 
-## Step 2 — Run the Static Analysis Engine (Heuristic Mode)
+## Step 2 — Run the Static Analysis Engine
 
 Check that the script exists:
 ```bash
 python -c "import pathlib; print('ok' if pathlib.Path('reverse_engineer_skill.py').exists() else 'missing')"
 ```
 
-**If the script exists**, run it with `--no-ai` so that:
-- All static analysis runs at full speed (parsing, metrics, APIs, entities, dead code)
-- No Anthropic API calls are made (you will provide the AI sections below)
+**If the script exists**, run the universal, execution-policy-independent wrapper script (which auto-detects Python, bypasses PowerShell restrictions, and sets UTF-8 encoding):
 
-```bash
-python reverse_engineer_skill.py <GITHUB_URL> --no-ai
-```
+- **On Windows:**
+  ```cmd
+  run.bat <GITHUB_URL>
+  ```
+- **On macOS/Linux:**
+  ```bash
+  ./run.sh <GITHUB_URL>
+  ```
 
-Wait for completion. The script will print the output file paths.
+Wait for completion. The script will print the output file paths including the newly generated vector SVG diagrams:
+- `{repo_name}_block_diagram.svg` — 4-layer architecture block diagram SVG
+- `{repo_name}_dependency_graph.svg` — Pure-Python force-directed module network SVG
 
 **If the script is missing**, perform manual analysis (see Step 2b at the bottom of this prompt).
 
@@ -70,7 +75,7 @@ Key sections to read:
 - `dependency_analysis` — external dependencies
 - `dead_code_analysis` — unreferenced files/classes
 
-Also read the Markdown report to understand what was already generated:
+Also read the Markdown report to understand what was already generated (including the embedded relative SVG diagrams):
 ```
 outputs/<repo_name>/<repo_name>_report.md
 ```
@@ -211,11 +216,13 @@ If the user says yes, edit the report file:
 Reverse engineering complete for: {repo_name}
 
 Output files:
-  outputs/{repo_name}/{repo_name}_sdd.json         — 14-section System Design Document
-  outputs/{repo_name}/{repo_name}_dashboard.html   — 6-section Stakeholder Dashboard
-  outputs/{repo_name}/{repo_name}_report.md        — 12-section Technical Report
-  outputs/{repo_name}/{repo_name}_evaluation.md    — Quality Evaluation
-  outputs/{repo_name}/manifest.json                — Run Manifest
+  outputs/{repo_name}/{repo_name}_sdd.json                — 14-section System Design Document
+  outputs/{repo_name}/{repo_name}_dashboard.html          — 6-section Stakeholder Dashboard (with Interactive / Static SVG toggles)
+  outputs/{repo_name}/{repo_name}_report.md               — 12-section Technical Report (with embedded relative SVG diagrams)
+  outputs/{repo_name}/{repo_name}_block_diagram.svg       — System Architecture Block Diagram SVG
+  outputs/{repo_name}/{repo_name}_dependency_graph.svg    — Module Dependency Graph SVG
+  outputs/{repo_name}/{repo_name}_evaluation.md           — Quality Evaluation
+  outputs/{repo_name}/manifest.json                       — Run Manifest
 
 Analysis (static engine + Copilot AI):
   Files analyzed   : N | Classes: N | Methods: N | APIs: N

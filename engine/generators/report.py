@@ -28,7 +28,80 @@ from engine.analyzer import (
     detect_platform,
     detect_architecture_layers,
     extract_external_deps,
+    generate_block_diagram_dot,
 )
+
+
+def render_ascii_block_diagram(block_diagram_data):
+    if not block_diagram_data or not isinstance(block_diagram_data, dict) or "layers" not in block_diagram_data:
+        return "No system architecture block diagram available."
+
+    lines = []
+    box_width = 72
+    inner_width = box_width - 2
+
+    layers = block_diagram_data.get("layers", [])
+    edges = block_diagram_data.get("edges", [])
+
+    for idx, layer in enumerate(layers):
+        # Top border
+        lines.append("┌" + "─" * inner_width + "┐")
+        
+        # Layer title
+        title = f" {layer.get('label', 'Layer').upper()} "
+        lines.append("│" + title.center(inner_width, " ") + "│")
+        
+        # Divider
+        lines.append("├" + "─" * inner_width + "┤")
+        
+        # Nodes
+        nodes = layer.get("nodes", [])
+        if not nodes:
+            lines.append("│" + " (No components detected) ".center(inner_width) + "│")
+        else:
+            # Format nodes in rows of 2 for clean readability
+            node_labels = [f"• {n.get('label', '')}" for n in nodes]
+            row = []
+            for i, label in enumerate(node_labels):
+                row.append(label)
+                if len(row) == 2 or i == len(node_labels) - 1:
+                    # Render row
+                    if len(row) == 2:
+                        left = row[0]
+                        right = row[1]
+                        col_width = inner_width // 2
+                        left_part = left.ljust(col_width - 2)
+                        right_part = right.ljust(inner_width - len(left_part) - 4)
+                        lines.append(f"│  {left_part}  {right_part}  │")
+                    else:
+                        left = row[0]
+                        lines.append(f"│  {left.ljust(inner_width - 4)}  │")
+                    row = []
+                    
+        # Bottom border
+        lines.append("└" + "─" * inner_width + "┘")
+
+        # If not the last layer, add flow connector
+        if idx < len(layers) - 1:
+            current_node_ids = {n["id"] for n in nodes}
+            next_nodes = layers[idx+1].get("nodes", [])
+            next_node_ids = {n["id"] for n in next_nodes}
+            
+            layer_edge_labels = []
+            for edge in edges:
+                if edge.get("from") in current_node_ids and edge.get("to") in next_node_ids:
+                    lbl = edge.get("label", "")
+                    if lbl and lbl not in layer_edge_labels:
+                        layer_edge_labels.append(lbl)
+            
+            connector_label = f" ({', '.join(layer_edge_labels)})" if layer_edge_labels else ""
+            
+            lines.append(" ")
+            lines.append("│".center(box_width).rstrip() + connector_label)
+            lines.append("▼".center(box_width).rstrip())
+            lines.append(" ")
+
+    return "\n".join(lines)
 
 
 def generate_md_report(
@@ -40,7 +113,7 @@ def generate_md_report(
     endpoints,
     openapi_spec,
     dead_code,
-    mermaid_code,
+    graphviz_code,
     tech_stack,
     summary,
     modernization,
@@ -229,6 +302,51 @@ def generate_md_report(
     bl_integrations = bl.get("integrations", [])
     bl_fallback   = bl.get("fallback_used", True)
 
+    # Mapped codebase information for stakeholder mapping chapter
+    mapping = bl.get("ai_codebase_mapping", {})
+    what_repo_does = mapping.get("what_the_repo_does", f"The cloned repository implements core business workflows.")
+    api_files_mapped = [f"`{f}`" for f in mapping.get("api_files", [])]
+    entity_files_mapped = [f"`{f}`" for f in mapping.get("entity_files", [])]
+    controllers_mapped = mapping.get("controllers_mapped", [])
+    services_mapped = mapping.get("services_mapped", [])
+    repos_mapped = mapping.get("repos_mapped", [])
+    entity_names = [e.get("name", "") for e in (db_schema or {}).get("entities", [])[:20]]
+
+    bl_mapping_md = f"""## 13. AI Codebase Mapping & Stakeholder Guide
+
+This section explains how the cloned repository `{repo_name}` maps to the business architecture and technical sections in this report, serving as a structured guide for AI assistants (like Claude, Copilot, or ChatGPT) to explain the codebase's domain operations.
+
+### Repository Purpose & Domain Map
+
+Based on static codebase mapping and naming pattern heuristics:
+- **Core Domain:** {bl_domain}
+- **Detected User Roles:** {', '.join(bl_roles)}
+- **Entity Count:** {len(entity_names)}
+- **Mapped Codebase Entities:** {', '.join(f'`{e}`' for e in entity_names[:10]) or 'None detected'}
+
+### How Codebase Files Map to Report Sections
+
+AI engines and stakeholders can navigate the cloned codebase files to verify and dive deep into each section of the report using this mapping:
+
+1. **Executive Summary & Business Logic (Sections 1 & 2):**
+   - *Mapped Files:* Codebase files with naming structures of domain models or context files map directly to the system purpose and business terminology defined in these sections.
+   - *Key Files:* {', '.join(entity_files_mapped[:5]) or 'Inferred from context classes'}
+
+2. **System Block Diagram & Architecture (Section 4):**
+   - *Mapped Files:* Controller and presenter files map to the API/Presentation layer, while service/manager files map to the Business Logic layer, and repository/DAO files map to the Data Access layer.
+   - *Key Controller Files:* {', '.join(controllers_mapped[:3]) or 'N/A (inferred from endpoints)'}
+   - *Key Service Files:* {', '.join(services_mapped[:3]) or 'N/A (inferred from codebase structure)'}
+   - *Key Repository Files:* {', '.join(repos_mapped[:3]) or 'N/A (inferred from data access patterns)'}
+
+3. **API Catalog & OpenAPI Specifications (Section 6):**
+   - *Mapped Files:* Files containing routing attributes (e.g. `@GetMapping`, `[Route]`, annotations) map directly to our API path catalog.
+   - *Key Files:* {', '.join(api_files_mapped[:5]) or 'No explicit endpoint files detected'}
+
+4. **Data Architecture & Microservice Boundaries (Section 11):**
+   - *Mapped Files:* ORM models, Fluent API configurations, and database contexts map directly to microservice database schema boundaries.
+   - *Key Files:* {', '.join(entity_files_mapped[:5]) or 'Inferred from data layers'}
+"""
+
     # Roles table
     bl_roles_md = "\n".join(f"- **{r}**" for r in bl_roles) or "_No roles detected_"
 
@@ -267,12 +385,8 @@ def generate_md_report(
     # Integrations
     bl_integrations_md = "\n".join(f"- `{i}`" for i in bl_integrations) or "_None detected_"
 
-    # Fallback notice
-    bl_notice = (
-        "\n> **Note:** Business logic was inferred using static heuristics "
-        "(no AI). Set `ANTHROPIC_API_KEY` for a richer AI-generated explanation.\n"
-        if bl_fallback else ""
-    )
+    # Fallback notice — now always False since heuristics IS the engine
+    bl_notice = ""
 
     # ------------------------------------------------------------------
     # Risk assessment table rows
@@ -305,13 +419,26 @@ def generate_md_report(
     ])
 
     # ------------------------------------------------------------------
+    # Block Diagram formatting
+    # ------------------------------------------------------------------
+    ascii_diagram = ""
+    dot_diagram = ""
+    if isinstance(block_diagram, dict):
+        ascii_diagram = render_ascii_block_diagram(block_diagram)
+        dot_diagram = generate_block_diagram_dot(block_diagram)
+    else:
+        dot_diagram = str(block_diagram or 'digraph G { A [label="No diagram generated"]; }')
+        ascii_diagram = "No visual diagram available."
+
+    # ------------------------------------------------------------------
     # Assemble the full report
     # ------------------------------------------------------------------
     report_md = f"""# {repo_name} — Reverse Engineering Report
 
-> **Auto-generated** by the Reverse Engineer Skill (Claude Code) · {now}
+> **Auto-generated** by the Reverse Engineer Skill (API-key-free static analysis) · {now}
 > Repository: [{repo_url}]({repo_url})
 > Primary Language: **{primary.capitalize()}**
+> Analysis Engine: **Pure static heuristics — no API keys required**
 
 ---
 
@@ -415,9 +542,23 @@ def generate_md_report(
 
 ### System Block Diagram
 
-```mermaid
-{block_diagram or 'graph TD\n  A[No diagram generated]'}
+![System Architecture Block Diagram]({repo_name}_block_diagram.svg)
+
+<details>
+<summary><b>Show ASCII/Unicode Text Block Diagram (Offline View)</b></summary>
+
+```text
+{ascii_diagram}
 ```
+</details>
+
+<details>
+<summary><b>Show Graphviz DOT Source Code (Developer View)</b></summary>
+
+```dot
+{dot_diagram}
+```
+</details>
 
 > The block diagram above shows the detected architectural layers — controllers,
 > services, repositories, database entities, and external integrations — auto-generated
@@ -425,9 +566,15 @@ def generate_md_report(
 
 ### Module Dependency Graph
 
-```mermaid
-{mermaid_code}
+![Module Dependency Graph]({repo_name}_dependency_graph.svg)
+
+<details>
+<summary><b>Show Graphviz DOT Source Code (Developer View)</b></summary>
+
+```dot
+{graphviz_code}
 ```
+</details>
 
 > The dependency graph above shows inter-module dependencies extracted from
 > import/using statements. Standard library imports are excluded.
@@ -568,11 +715,15 @@ When decomposing the monolithic database for microservices migration:
 
 ---
 
+{bl_mapping_md}
+
+---
+
 ## Appendix
 
 ### How This Report Was Generated
 
-This report was produced by the **Reverse Engineer Skill** for Claude Code, which:
+This report was produced by the **Reverse Engineer Skill** — a pure static analysis engine that:
 
 1. Cloned the repository from GitHub
 2. Walked all source files (`.py`, `.java`, `.cs`, `.ts`, `.js`, etc.)
@@ -580,7 +731,16 @@ This report was produced by the **Reverse Engineer Skill** for Claude Code, whic
 4. Built a dependency graph from import/using statements
 5. Applied dead-code heuristics (unreferenced module detection)
 6. Generated an OpenAPI 3.0 specification from routing annotations
-7. Used Claude claude-sonnet-4-6 for AI-powered executive summary, modernization planning, and business logic analysis
+7. Used static naming-convention heuristics to infer executive summary, business domain,
+   modernisation roadmap, and architecture pattern — **no API keys or LLM accounts required**
+
+> **To get AI-powered narrative on top of these results:**
+> - **Claude Code**: Run `/reverse-engineer {repo_url}` — Claude reads the output and provides
+>   AI explanation in chat.
+> - **GitHub Copilot**: Use `.github/prompts/reverse-engineer.prompt.md` — Copilot reads the
+>   SDD JSON and narrates the findings.
+> - **Any other LLM**: Open this report or the `*_sdd.json` file and ask your AI assistant
+>   to explain or enhance any section.
 
 ### Limitations
 
@@ -588,10 +748,10 @@ This report was produced by the **Reverse Engineer Skill** for Claude Code, whic
 - API extraction relies on common patterns (ASP.NET attributes, Spring annotations,
   Flask decorators, Express routes)
 - Dead code detection is heuristic and may have false positives/negatives
-- AI sections require `ANTHROPIC_API_KEY` for full content; fallback text used otherwise
+- Business logic and domain labels inferred from naming conventions — review for accuracy
 
 ---
 
-_Generated by Reverse Engineer Skill · Claude Code · {now}_
+_Generated by Reverse Engineer Skill · Static Analysis Engine · {now}_
 """
     return report_md
