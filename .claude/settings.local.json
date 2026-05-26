@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone *)",
+      "Bash(Get-ChildItem -Depth 0)",
+      "Bash(Format-Table Name, LastWriteTime, Attributes -AutoSize)",
+      "Bash(mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/.claude/commands\" && mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/templates\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('reverse_engineer_skill.py', doraise=True\\); print\\('✓ Syntax OK'\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('reverse_engineer_skill.py', doraise=True\\); print\\('Syntax OK'\\)\")",
+      "Bash(find C:\\\\\\\\Users\\\\\\\\SarveshTalele\\\\\\\\Downloads\\\\\\\\reverse-eng-proj\\\\\\\\dotnet-reverse-engineer -type f \\\\\\( -name \"*.md\" -o -name \"*.py\" \\\\\\))",
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/.github/prompts\" && mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/.vscode\")",
+      "Bash(find /c/Users/SarveshTalele/Downloads -maxdepth 3 -name \"legacy_modernizer\" -type d 2>/dev/null)",
+      "Bash(python reverse_engineer_skill.py https://github.com/nopSolutions/nopCommerce)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(python -c \"import json; m=json.load\\(open\\('outputs/nopCommerce/manifest.json'\\)\\); print\\(json.dumps\\(m, indent=2\\)\\)\")",
+      "Bash(python -c \"from engine.parsers import parse_dotnet; from engine.analyzer import detect_database_schema, suggest_microservice_data_boundaries; from engine.pipeline import run_pipeline; print\\('Imports OK'\\)\")",
+      "Bash(node --check \"C:\\\\Users\\\\SarveshTalele\\\\Downloads\\\\reverse-eng-proj\\\\_jschk.js\")",
+      "Bash(python -c \"from engine.evaluator import evaluate_pipeline_output, write_evaluation_md; print\\('Import OK'\\)\")"
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-05-26T07:19:57.085104+00:00Z",
+  "repo_name": "productlaunch",
+  "output_directory": "outputs\\productlaunch",
+  "files_written": [
+    {
+      "file": "productlaunch_sdd.json",
+      "type": "json",
+      "size": 74904
+    },
+    {
+      "file": "productlaunch_dashboard.html",
+      "type": "text",
+      "size": 75260
+    },
+    {
+      "file": "productlaunch_report.md",
+      "type": "text",
+      "size": 16961
+    }
+  ],
+  "metrics": {
+    "files_analyzed": 73,
+    "classes": 59,
+    "methods": 461,
+    "api_endpoints": 0,
+    "dead_files": 66,
+    "primary_language": "dotnet"
+  }
+}

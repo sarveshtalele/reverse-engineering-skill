@@ -1,0 +1,340 @@
+{
+  "_comment": "SDD Framework Template v3.0 — System Design Document for Legacy Project Reverse Engineering",
+  "_usage": "This template defines the schema for {repo_name}_sdd.json. Every field with PLACEHOLDER values gets replaced by the reverse_engineer_skill.py pipeline. 13 top-level sections.",
+  "_schema_version": "SDD-Framework-v1",
+
+  "sdd_metadata": {
+    "version": "1.0",
+    "schema": "SDD-Framework-v1",
+    "generated_at": "{{ISO8601_TIMESTAMP}}",
+    "generator": "Reverse Engineer Skill — Claude Code",
+    "model_used": "claude-sonnet-4-6"
+  },
+
+  "project": {
+    "name": "{{REPO_NAME}}",
+    "repository_url": "{{GITHUB_URL}}",
+    "primary_language": "{{PRIMARY_LANGUAGE}}",
+    "tech_stack": [
+      "{{FRAMEWORK_1}}",
+      "{{FRAMEWORK_2}}",
+      "{{DATABASE}}",
+      "{{INFRA_TECH}}"
+    ],
+    "platform": "{{PLATFORM}}",
+    "architecture_layers": [
+      "API / Presentation Layer",
+      "Business Logic Layer",
+      "Data Access Layer",
+      "Utility / Shared Layer",
+      "Configuration / Bootstrap Layer"
+    ]
+  },
+
+  "executive_summary": {
+    "purpose": "{{SYSTEM_PURPOSE_2_3_SENTENCES}}",
+    "architecture_pattern": "{{ARCHITECTURE_PATTERN}}",
+    "tech_debt_concerns": [
+      "{{TECH_DEBT_CONCERN_1}}",
+      "{{TECH_DEBT_CONCERN_2}}",
+      "{{TECH_DEBT_CONCERN_3}}"
+    ],
+    "modernization_priority": "HIGH | MEDIUM | LOW",
+    "priority_reasoning": "{{PRIORITY_REASONING_1_2_SENTENCES}}"
+  },
+
+  "codebase_metrics": {
+    "total_files_analyzed": 0,
+    "total_classes": 0,
+    "total_methods": 0,
+    "total_api_endpoints": 0,
+    "language_distribution": {
+      "{{LANGUAGE_1}}": 0,
+      "{{LANGUAGE_2}}": 0
+    },
+    "most_connected_modules": [
+      { "module": "{{MODULE_NAME}}", "connections": 0 }
+    ],
+    "dead_code_files": 0,
+    "dead_code_classes": 0
+  },
+
+  "architecture": {
+    "style": "{{ARCHITECTURE_STYLE}}",
+    "layers": [
+      "{{LAYER_1}}",
+      "{{LAYER_2}}"
+    ],
+    "components": [
+      {
+        "name": "{{CLASS_NAME}}",
+        "type": "Class | Interface | Module | Service",
+        "file": "{{FILE_NAME}}",
+        "methods_count": 0
+      }
+    ],
+    "dependency_graph": {
+      "format": "Mermaid",
+      "diagram": "graph TD\n    ModuleA --> ModuleB\n    ModuleB --> ModuleC"
+    }
+  },
+
+  "module_inventory": [
+    {
+      "file": "{{FULL_FILE_PATH}}",
+      "relative_path": "{{FILE_NAME}}",
+      "language": "{{LANGUAGE}}",
+      "namespace": "{{NAMESPACE_OR_PACKAGE}}",
+      "classes": ["{{CLASS_1}}", "{{CLASS_2}}"],
+      "methods": ["{{METHOD_1}}", "{{METHOD_2}}", "{{METHOD_3}}"],
+      "dependencies": ["{{DEPENDENCY_1}}", "{{DEPENDENCY_2}}"],
+      "api_routes": [
+        {
+          "path": "/{{API_PATH}}",
+          "methods": ["GET | POST | PUT | DELETE | PATCH"],
+          "class": "{{CONTROLLER_CLASS}}",
+          "method": "{{HANDLER_METHOD}}"
+        }
+      ]
+    }
+  ],
+
+  "api_catalog": {
+    "openapi_spec": {
+      "openapi": "3.0.0",
+      "info": {
+        "title": "{{REPO_NAME}} API",
+        "version": "1.0.0",
+        "description": "Auto-extracted OpenAPI 3.0 specification"
+      },
+      "paths": {
+        "/{{ENDPOINT_PATH}}": {
+          "get": {
+            "summary": "{{HANDLER_SUMMARY}}",
+            "description": "{{HANDLER_DESCRIPTION}}",
+            "responses": {
+              "200": { "description": "Success" },
+              "400": { "description": "Bad Request" },
+              "401": { "description": "Unauthorized" },
+              "500": { "description": "Internal Server Error" }
+            }
+          }
+        }
+      }
+    },
+    "total_endpoints": 0,
+    "endpoints": [
+      {
+        "path": "/{{API_PATH}}",
+        "http_methods": ["GET"],
+        "handler": "{{CONTROLLER}}.{{METHOD}}()",
+        "file": "{{FILE_NAME}}"
+      }
+    ]
+  },
+
+  "dependency_analysis": {
+    "total_unique_external_deps": 0,
+    "external_dependencies": [
+      "{{NAMESPACE_OR_PACKAGE_1}}",
+      "{{NAMESPACE_OR_PACKAGE_2}}"
+    ],
+    "dependency_map_sample": {
+      "{{MODULE_NAME}}": ["{{DEP_1}}", "{{DEP_2}}"]
+    },
+    "top_10_most_connected": [
+      { "module": "{{MODULE_NAME}}", "connections": 0 }
+    ]
+  },
+
+  "dead_code_analysis": {
+    "summary": "{{N}} potentially unreferenced files, {{M}} unreferenced classes",
+    "unreferenced_files": ["{{FILE_NAME_1}}", "{{FILE_NAME_2}}"],
+    "unreferenced_files_full_paths": ["{{FULL_PATH_1}}", "{{FULL_PATH_2}}"],
+    "unreferenced_classes": [
+      { "class": "{{CLASS_NAME}}", "file": "{{FILE_PATH}}" }
+    ]
+  },
+
+  "data_architecture": {
+    "_comment": "ORM entity model extracted by static analysis. Covers EF Core (C#), JPA/Hibernate (Java), SQLAlchemy/Django (Python).",
+    "entity_count": 0,
+    "relationship_count": 0,
+    "has_schema": false,
+    "entities": [
+      {
+        "name": "{{ENTITY_CLASS_NAME}}",
+        "table": "{{TABLE_NAME}}",
+        "fields": [
+          { "name": "{{FIELD_NAME}}", "type": "{{FIELD_TYPE}}" }
+        ],
+        "relationships": [
+          { "type": "OneToMany | ManyToOne | ManyToMany", "target": "{{TARGET_ENTITY}}" }
+        ],
+        "file": "{{FILE_NAME}}"
+      }
+    ],
+    "microservice_data_boundaries": [
+      {
+        "name": "{{BOUNDED_CONTEXT_NAME}}",
+        "entities": ["{{ENTITY_1}}", "{{ENTITY_2}}"],
+        "color": "{{HEX_COLOR}}",
+        "entity_count": 0
+      }
+    ],
+    "migration_notes": "Each bounded context (microservice) should own its own database. Shared tables must be decomposed via API contracts or event-driven integration (e.g., domain events with an outbox pattern). Begin with the least-coupled bounded context to minimise risk."
+  },
+
+  "business_logic": {
+    "_comment": "Plain-English business logic analysis — AI-generated (ai_business_logic_analysis) or heuristic fallback. Explains what the ANALYSED REPO does for its end-users.",
+    "business_domain": "{{BUSINESS_DOMAIN}}",
+    "what_it_does": "{{2-3 PARAGRAPH PLAIN-ENGLISH EXPLANATION}}",
+    "core_workflows": [
+      {
+        "name": "{{WORKFLOW_NAME}}",
+        "description": "{{ONE_SENTENCE_DESCRIPTION}}",
+        "steps": ["{{STEP_1}}", "{{STEP_2}}", "{{STEP_3}}"],
+        "endpoints": ["{{/api/example}}"]
+      }
+    ],
+    "user_roles": ["{{ROLE_1}}", "{{ROLE_2}}"],
+    "key_business_rules": ["{{RULE_1}}", "{{RULE_2}}", "{{RULE_3}}"],
+    "data_entities_explained": [
+      {
+        "entity": "{{ENTITY_NAME}}",
+        "business_meaning": "{{PLAIN_ENGLISH_MEANING}}",
+        "key_operations": ["{{OP_1}}", "{{OP_2}}", "{{OP_3}}"]
+      }
+    ],
+    "integrations": ["{{INTEGRATION_1}}", "{{INTEGRATION_2}}"],
+    "ai_generated": false
+  },
+
+  "modernization_roadmap": {
+    "target_stack": [
+      "{{TARGET_FRAMEWORK}}",
+      "{{TARGET_DATABASE}}",
+      "{{TARGET_INFRA}}"
+    ],
+    "phases": [
+      {
+        "phase": 1,
+        "title": "Assessment & Audit",
+        "duration": "1-2 months",
+        "tasks": [
+          "Complete code audit and inventory",
+          "Map all external dependencies",
+          "Identify critical business paths",
+          "Establish test baseline"
+        ],
+        "risk": "LOW"
+      },
+      {
+        "phase": 2,
+        "title": "Foundation & Refactoring",
+        "duration": "2-3 months",
+        "tasks": [
+          "Introduce automated test suite",
+          "Refactor core modules to clean architecture",
+          "Upgrade deprecated dependencies",
+          "Implement CI/CD pipeline"
+        ],
+        "risk": "MEDIUM"
+      },
+      {
+        "phase": 3,
+        "title": "Migration & Modernization",
+        "duration": "3-6 months",
+        "tasks": [
+          "Migrate to target framework/platform",
+          "Decompose monolith into bounded contexts",
+          "Implement API gateway",
+          "Containerize services"
+        ],
+        "risk": "HIGH"
+      },
+      {
+        "phase": 4,
+        "title": "Validation & Launch",
+        "duration": "1-2 months",
+        "tasks": [
+          "End-to-end regression testing",
+          "Performance and load testing",
+          "Security audit",
+          "Production cutover and monitoring"
+        ],
+        "risk": "MEDIUM"
+      }
+    ],
+    "microservices_boundaries": [
+      "{{SERVICE_1_NAME}} — {{SERVICE_1_RESPONSIBILITY}}",
+      "{{SERVICE_2_NAME}} — {{SERVICE_2_RESPONSIBILITY}}",
+      "{{SERVICE_3_NAME}} — {{SERVICE_3_RESPONSIBILITY}}"
+    ],
+    "estimated_total_effort": "{{N}}-{{M}} months",
+    "risk_factors": [
+      "{{RISK_FACTOR_1}}",
+      "{{RISK_FACTOR_2}}",
+      "{{RISK_FACTOR_3}}"
+    ]
+  },
+
+  "risk_assessment": [
+    {
+      "id": "RISK-001",
+      "category": "Technical Debt",
+      "severity": "HIGH | MEDIUM | LOW",
+      "description": "{{RISK_DESCRIPTION}}",
+      "recommendation": "{{RISK_RECOMMENDATION}}"
+    },
+    {
+      "id": "RISK-002",
+      "category": "Dead Code",
+      "severity": "MEDIUM",
+      "description": "{{N}} potentially unreferenced modules detected.",
+      "recommendation": "Review and prune unused code to reduce maintenance surface area."
+    },
+    {
+      "id": "RISK-003",
+      "category": "API Documentation",
+      "severity": "HIGH | LOW",
+      "description": "{{N}} API endpoints extracted. Full documentation status.",
+      "recommendation": "Ensure all API contracts are documented with OpenAPI 3.0 specification."
+    },
+    {
+      "id": "RISK-004",
+      "category": "Dependency Hygiene",
+      "severity": "MEDIUM",
+      "description": "{{N}} unique external dependencies detected.",
+      "recommendation": "Audit dependency versions against CVE databases and upgrade stale packages."
+    }
+  ],
+
+  "tech_debt_inventory": [
+    {
+      "category": "Legacy Dependencies",
+      "severity": "HIGH",
+      "description": "{{N}} external dependencies — audit for outdated versions and CVE exposure."
+    },
+    {
+      "category": "Documentation Coverage",
+      "severity": "MEDIUM",
+      "description": "Auto-documentation generated; manual review recommended for accuracy."
+    },
+    {
+      "category": "Test Coverage",
+      "severity": "HIGH",
+      "description": "Test coverage metrics not assessed — review existing test suites."
+    },
+    {
+      "category": "Dead Code Removal",
+      "severity": "MEDIUM",
+      "description": "{{N}} unreferenced files identified for potential removal."
+    },
+    {
+      "category": "API Contract Gaps",
+      "severity": "HIGH | LOW",
+      "description": "{{STATUS}} — validate completeness against OpenAPI spec."
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "github.copilot.chat.codeGeneration.instructions": [
+    {
+      "text": "This workspace contains the Reverse Engineer Skill v3.0 — a Python static analysis engine. Entry point: reverse_engineer_skill.py. Engine package: engine/ (loaders, parsers, analyzer, ai_analysis, evaluator, output_manager, pipeline, generators/). Generates 5 output files per run: _sdd.json (13-section SDD), _dashboard.html (6-section Apple-theme HTML), _report.md (11-section Markdown), _evaluation.md (100-pt quality score), manifest.json. Parser return contract: {file, language, classes, methods, imports, dependencies, routes, db_entities}. All outputs go to ./outputs/{repo_name}/ via OutputManager. No new deps — only anthropic in requirements.txt. HTML dashboard uses Apple design (#f5f5f7 bg, #0071e3 blue, SF Pro fonts, 14px border-radius). See COMPONENTS.md for function-by-function reference, SETUP.md for setup guide."
+    }
+  ],
+  "github.copilot.chat.localeOverride": "en",
+  "github.copilot.enable": {
+    "*": true,
+    "python": true,
+    "markdown": true,
+    "json": true,
+    "html": true
+  },
+  "github.copilot.editor.enableAutoCompletions": true,
+  "chat.promptFiles": true,
+  "chat.promptFilesLocations": {
+    ".github/prompts": true
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+  "python.analysis.extraPaths": [
+    "."
+  ]
+}
