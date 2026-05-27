@@ -239,7 +239,8 @@ def run_pipeline(repo_url, mode="heuristic"):
             ai_result = ai_all_sections_claude(
                 parsed, report, endpoints, db_schema, tech_stack, repo_name
             )
-            if ai_result:
+            # ai_result is a 3-tuple or None — never unpack directly without length check
+            if isinstance(ai_result, tuple) and len(ai_result) == 3:
                 summary, modernization, business_logic = ai_result
                 print("      [ok] Claude API analysis complete")
             else:
@@ -284,7 +285,7 @@ def run_pipeline(repo_url, mode="heuristic"):
 
         # File 2: HTML Dashboard
         html_content = generate_html_dashboard(
-            repo_name, repo_url, report, endpoints, dead_code, dep_graph_dot,
+            repo_name, repo_url, report, endpoints, dead_code,
             tech_stack, summary, modernization, top_mods,
             platform=platform_str,
             arch_layers=arch_layers,
@@ -300,7 +301,7 @@ def run_pipeline(repo_url, mode="heuristic"):
         # File 3: Markdown Report
         md_content = generate_md_report(
             repo_name, repo_url, report, parsed, dep_map, endpoints,
-            openapi_spec, dead_code, dep_graph_dot, tech_stack, summary,
+            openapi_spec, dead_code, tech_stack, summary,
             modernization, top_mods,
             db_schema=db_schema,
             data_boundaries=data_boundaries,

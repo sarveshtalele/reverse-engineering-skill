@@ -41,7 +41,6 @@ def generate_html_dashboard(
     report,
     endpoints,
     dead_code,
-    graphviz_code,
     tech_stack,
     summary,
     modernization,
@@ -166,7 +165,7 @@ def generate_html_dashboard(
         "integrations":            business_logic.get("integrations", []),
         "fallback_used":           business_logic.get("fallback_used", True),
     })
-    block_diagram_js    = json.dumps(block_diagram or "")
+    block_diagram_js    = json.dumps(block_diagram if isinstance(block_diagram, dict) else {})
     dep_graph_js        = json.dumps(dep_graph or {"nodes": [], "edges": []})
     priority         = summary.get("modernization_priority", "HIGH")
     generated_at     = datetime.datetime.now(datetime.timezone.utc).strftime(

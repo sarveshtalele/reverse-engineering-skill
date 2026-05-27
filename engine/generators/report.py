@@ -112,7 +112,6 @@ def generate_md_report(
     endpoints,
     openapi_spec,
     dead_code,
-    graphviz_code,
     tech_stack,
     summary,
     modernization,

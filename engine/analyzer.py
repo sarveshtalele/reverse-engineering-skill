@@ -771,16 +771,21 @@ def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
             seen_classes.add(cls)
             lower_cls = cls.lower()
 
-            # Presentation: explicit controller/handler keywords, folder signal, or Web Forms page names
-            _is_ctrl_cls = any(k in lower_cls for k in (
-                "controller", "handler", "router", "endpoint", "page", "form", "view", "signup", "register"
+            # Presentation: use suffix/prefix checks to avoid false positives
+            # (e.g. "page" would match "homepage"; "form" would match "informationforms")
+            _is_ctrl_cls = any(lower_cls.endswith(k) or lower_cls.startswith(k) for k in (
+                "controller", "handler", "router", "endpoint",
+            )) or any(k in lower_cls for k in (
+                "controller", "handler", "router",
             ))
-            _is_svc_cls = any(k in lower_cls for k in (
-                "service", "manager", "usecase", "facade", "workflow", "processor", "helper", "validator"
-            ))
-            _is_data_cls = any(k in lower_cls for k in (
-                "repository", "repo", "dao", "store", "gateway", "adapter", "context", "dbcontext"
-            ))
+            # Web Forms code-behind: class name IS the page name (SignUp, Default, Contact)
+            # detected via is_presentation (file path) rather than class name keywords
+            _is_svc_cls = any(lower_cls.endswith(k) or k in lower_cls for k in (
+                "service", "manager", "usecase", "facade", "workflow", "processor",
+            )) or any(lower_cls.endswith(k) for k in ("helper", "validator"))
+            _is_data_cls = any(lower_cls.endswith(k) or k in lower_cls for k in (
+                "repository", "repo", "dao", "store", "gateway", "adapter",
+            )) or lower_cls.endswith("context") or lower_cls.endswith("dbcontext")
 
             if _is_ctrl_cls or is_presentation:
                 if cls not in controllers:
@@ -989,9 +994,9 @@ def generate_block_diagram_dot(block_diagram_data):
             dot.append(f"    \"{node['id']}\" [label=\"{node.get('label', '')}\", fillcolor=\"{layer.get('color', '#f5f5f7')}\", fontcolor=\"#ffffff\", style=\"filled,rounded\", penwidth=0];")
         dot.append("  }")
         
-    for edge in edges:
+    for edge in (edges or []):
         dot.append(f"  \"{edge['from']}\" -> \"{edge['to']}\" [label=\"{edge.get('label', '')}\"];")
-        
+
     dot.append("}")
     return "\n".join(dot)
 

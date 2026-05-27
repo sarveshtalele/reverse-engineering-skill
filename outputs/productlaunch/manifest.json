@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-05-27T05:09:47.428381+00:00Z",
+  "generated_at": "2026-05-27T05:19:40.572517+00:00Z",
   "repo_name": "productlaunch",
   "output_directory": "outputs\\productlaunch",
   "files_written": [
     {
       "file": "productlaunch_sdd.json",
       "type": "json",
-      "size": 89827
+      "size": 89896
     },
     {
       "file": "productlaunch_dashboard.html",

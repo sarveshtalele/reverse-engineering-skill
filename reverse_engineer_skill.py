@@ -70,9 +70,16 @@ def _ask_mode(args: list) -> str:
     print()
     try:
         choice = input("  Enter choice [1]: ").strip() or "1"
-    except (EOFError, KeyboardInterrupt):
+    except EOFError:
         choice = "1"
         print()
+    except KeyboardInterrupt:
+        print()
+        raise
+
+    if choice not in ("1", "2"):
+        print(f"  [!] Invalid choice '{choice}' — defaulting to [1] Heuristic.\n")
+        choice = "1"
 
     if choice == "2":
         import os

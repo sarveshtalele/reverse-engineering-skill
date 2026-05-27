@@ -52,12 +52,12 @@
   <text x="667" y="82" fill="#ffffff" class="g-lbl">ProductLaunch.Model</text>
   <rect x="580" y="110" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
   <text x="667" y="124" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
-  <rect x="580" y="152" width="174" height="26" rx="6" fill="#0071e3" stroke="#005bb5" stroke-width="1.5"/>
-  <text x="667" y="166" fill="#ffffff" class="g-lbl">ProductLaunch.Message…</text>
+  <rect x="580" y="152" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="166" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
   <rect x="580" y="194" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
   <text x="667" y="208" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
-  <rect x="580" y="236" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
-  <text x="667" y="250" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
+  <rect x="580" y="236" width="174" height="26" rx="6" fill="#0071e3" stroke="#005bb5" stroke-width="1.5"/>
+  <text x="667" y="250" fill="#ffffff" class="g-lbl">ProductLaunch.Message…</text>
   <rect x="580" y="278" width="174" height="26" rx="6" fill="#0071e3" stroke="#005bb5" stroke-width="1.5"/>
   <text x="667" y="292" fill="#ffffff" class="g-lbl">ProductLaunch.Message…</text>
   <rect x="627" y="320" width="80" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>

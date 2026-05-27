@@ -42,7 +42,9 @@ def _call_claude(prompt: str, model: str = "claude-sonnet-4-6") -> str:
             messages=[{"role": "user", "content": prompt}],
         )
         return msg.content[0].text if msg.content else ""
-    except Exception as exc:  # noqa: BLE001
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as exc:
         print(f"  [!] Claude API error: {exc}")
         return ""
 
@@ -122,22 +124,33 @@ Return ONLY the JSON object, no markdown fences, no explanation."""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        # Attempt to extract JSON block
-        m = re.search(r'\{[\s\S]*\}', raw)
-        if not m:
+        # Fall back to brace-balanced extraction to handle leading/trailing text
+        start = raw.find("{")
+        if start == -1:
+            return None
+        depth, end = 0, -1
+        for i, ch in enumerate(raw[start:], start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if end == -1:
             return None
         try:
-            data = json.loads(m.group(0))
+            data = json.loads(raw[start:end + 1])
         except json.JSONDecodeError:
             return None
 
-    summary = data.get("executive_summary", {})
-    modernization = data.get("modernization_roadmap", {})
-    biz = data.get("business_logic", {})
+    # Validate all three required keys are present dicts
+    summary = data.get("executive_summary")
+    modernization = data.get("modernization_roadmap")
+    biz = data.get("business_logic")
+    if not isinstance(summary, dict) or not isinstance(modernization, dict) or not isinstance(biz, dict):
+        return None
 
-    # Normalise schema to match what the pipeline expects
-    if "summary" not in summary:
-        pass  # already correct schema
     biz["fallback_used"] = False
 
     return summary, modernization, biz
