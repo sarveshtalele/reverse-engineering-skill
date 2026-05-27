@@ -724,7 +724,21 @@ def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
     def _safe(name):
         return _re.sub(r'[^A-Za-z0-9]', '_', str(name))
 
-    # Classify files and classes into layers using both class names and path heuristics
+    # Vendor/library stems to skip — these are frontend dependencies, not application classes
+    _VENDOR_STEMS = frozenset({
+        "bootstrap", "bootstrap_min", "jquery", "jquery_min",
+        "modernizr", "modernizr_2_6_2", "respond", "respond_min",
+        "moment", "lodash", "angular", "vue", "react",
+        "_references", "webforms", "webparts", "detailsview", "gridview",
+        "menu", "smartnav", "treeview", "menustandards", "focus",
+        "microsoftajax", "microsoftajaxcore", "microsoftajaxcomponentmodel",
+        "microsoftajaxapplicationservices", "microsoftajaxwebservices",
+        "microsoftajaxglobalization", "microsoftajaxhistory",
+        "microsoftajaxnetwork", "microsoftajaxserialization",
+        "microsoftajaxtimer", "microsoftajaxwebforms",
+    })
+
+    # Classify files and classes into layers using class names and folder heuristics
     controllers, services, repositories = [], [], []
     seen_classes = set()
     seen_components = set()
@@ -732,32 +746,62 @@ def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
     for item in parsed[:150]:
         file_path = item.get("file", "")
         file_lower = file_path.lower()
-        
-        # Check folder structure
-        is_presentation = any(k in file_lower for k in ("/controllers/", "/api/", "/endpoints/", "/handlers/", "/pages/", "/views/", "\\controllers\\", "\\api\\", "\\endpoints\\", "\\handlers\\", "\\pages\\", "\\views\\")) or file_lower.endswith((".aspx", ".html", ".js", ".ts"))
-        is_logic = any(k in file_lower for k in ("/services/", "/managers/", "/usecases/", "/business/", "/logic/", "/workflows/", "\\services\\", "\\managers\\", "\\usecases\\", "\\business\\", "\\logic\\", "\\workflows\\"))
-        is_data = any(k in file_lower for k in ("/repositories/", "/repos/", "/dao/", "/dal/", "/store/", "/data/", "/db/", "\\repositories\\", "\\repos\\", "\\dao\\", "\\dal\\", "\\store\\", "\\data\\", "\\db\\"))
 
-        # Check classes defined in this file
+        # Folder-based layer classification (explicit directory keywords only)
+        is_presentation = any(k in file_lower for k in (
+            "/controllers/", "/api/", "/endpoints/", "/handlers/", "/pages/",
+            "\\controllers\\", "\\api\\", "\\endpoints\\", "\\handlers\\", "\\pages\\",
+        )) or file_lower.endswith(".aspx") or ".aspx." in file_lower
+        # NOTE: .aspx.cs = Web Forms code-behind; .js/.ts/.html are NOT presentation
+        # (often vendor scripts or templates, not application controllers).
+
+        is_logic = any(k in file_lower for k in (
+            "/services/", "/managers/", "/usecases/", "/business/", "/logic/", "/workflows/",
+            "\\services\\", "\\managers\\", "\\usecases\\", "\\business\\", "\\logic\\", "\\workflows\\",
+        ))
+        is_data = any(k in file_lower for k in (
+            "/repositories/", "/repos/", "/dao/", "/dal/", "/store/", "/data/", "/db/",
+            "\\repositories\\", "\\repos\\", "\\dao\\", "\\dal\\", "\\store\\", "\\data\\", "\\db\\",
+        ))
+
+        # Check classes defined in this file — class names are authoritative
         for cls in item.get("classes", []):
             if cls in seen_classes or not cls:
                 continue
             seen_classes.add(cls)
             lower_cls = cls.lower()
-            
-            if any(k in lower_cls for k in ("controller", "handler", "router", "endpoint")) or is_presentation:
+
+            # Presentation: explicit controller/handler keywords, folder signal, or Web Forms page names
+            _is_ctrl_cls = any(k in lower_cls for k in (
+                "controller", "handler", "router", "endpoint", "page", "form", "view", "signup", "register"
+            ))
+            _is_svc_cls = any(k in lower_cls for k in (
+                "service", "manager", "usecase", "facade", "workflow", "processor", "helper", "validator"
+            ))
+            _is_data_cls = any(k in lower_cls for k in (
+                "repository", "repo", "dao", "store", "gateway", "adapter", "context", "dbcontext"
+            ))
+
+            if _is_ctrl_cls or is_presentation:
                 if cls not in controllers:
                     controllers.append(cls)
-            elif any(k in lower_cls for k in ("service", "manager", "usecase", "facade", "workflow")) or is_logic:
+            elif _is_svc_cls or is_logic:
                 if cls not in services:
                     services.append(cls)
-            elif any(k in lower_cls for k in ("repository", "repo", "dao", "store", "gateway", "adapter", "context")) or is_data:
+            elif _is_data_cls or is_data:
                 if cls not in repositories:
                     repositories.append(cls)
 
-        # Fallback if no classes defined but the file itself maps to a layer
+        # Fallback: file has no classes — use folder + stem signals
         if not item.get("classes"):
             stem = Path(file_path).stem
+            # For .aspx.cs files, strip the .aspx suffix from stem (e.g. "SignUp.aspx" → "SignUp")
+            if stem.lower().endswith(".aspx"):
+                stem = stem[:-5]
+            stem_key = _re.sub(r'[^a-z0-9]', '_', stem.lower())
+            # Skip vendor/library files entirely
+            if stem_key in _VENDOR_STEMS or stem.startswith(("_", ".")):
+                continue
             if stem not in seen_components and stem:
                 seen_components.add(stem)
                 if is_presentation or any(k in file_lower for k in ("controller", "handler", "router", "endpoint")):
@@ -775,13 +819,13 @@ def generate_block_diagram(parsed, endpoints, db_schema, tech_stack):
     layers = []
     edges  = []
 
-    # Layer 0: Client
+    # Layer 0: Client — represents external callers (browser, mobile app, API consumer)
     layers.append({
         "id": "client",
         "label": "User / Client",
         "color": "#6e6e73",
         "icon": "user",
-        "nodes": [{"id": "client_node", "label": "Client"}],
+        "nodes": [{"id": "client_node", "label": "Web Browser / API Client"}],
     })
 
     # Layer 1: API / Controllers
@@ -972,17 +1016,28 @@ def generate_block_diagram_svg(block_diagram_data):
     total_layers = len(layers)
     total_height = 20 + total_layers * (layer_height + layer_gap) - layer_gap + 20
 
+    # Helper: truncate long labels to prevent pill overflow
+    def _trunc(lbl, max_chars=18):
+        return lbl if len(lbl) <= max_chars else lbl[:max_chars - 1] + "…"
+
+    # Helper: hex color to semi-transparent CSS rgba (20% opacity fill)
+    def _tint(hex_color):
+        h = hex_color.lstrip("#")
+        if len(h) == 6:
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            return f"rgba({r},{g},{b},0.15)"
+        return "rgba(174,174,178,0.15)"
+
     svg_parts = [
         '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="700" height="{total_height}" viewBox="0 0 700 {total_height}">',
         '  <style>',
-        '    .layer-bg { fill: #f5f5f7; stroke: #e5e5ea; stroke-width: 1.5; }',
-        '    .node-pill { fill: #ffffff; stroke: #d1d1d6; stroke-width: 1.5; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.03)); }',
-        '    .node-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; fill: #1d1d1f; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }',
-        '    .layer-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }',
+        '    .layer-bg { fill: #f9f9fb; stroke: #e5e5ea; stroke-width: 1.5; }',
+        '    .layer-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }',
+        '    .node-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }',
         '    .connector-line { stroke: #aeaeb2; stroke-width: 2; stroke-dasharray: 4 3; }',
         '    .connector-arrow { fill: #aeaeb2; }',
-        '    .connector-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 9px; fill: #8e8e93; font-weight: 600; text-anchor: start; }',
+        '    .connector-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 9px; fill: #6e6e73; font-weight: 600; text-anchor: middle; }',
         '  </style>',
     ]
 
@@ -991,67 +1046,83 @@ def generate_block_diagram_svg(block_diagram_data):
         color = layer.get("color", "#8e8e93")
         label = layer.get("label", "Layer").upper()
         nodes = layer.get("nodes", [])
+        tint = _tint(color)
 
-        # Background card
+        # Background card with subtle left border via thick path
         svg_parts.append(f'  <!-- Layer {idx}: {label} -->')
-        svg_parts.append(f'  <rect x="25" y="{y}" width="650" height="{layer_height}" rx="12" class="layer-bg" />')
-        
-        # Color indicator path
-        svg_parts.append(f'  <path d="M 25 {y + 6} L 25 {y + layer_height - 6}" stroke="{color}" stroke-width="5" stroke-linecap="round" />')
-        
+        svg_parts.append(f'  <rect x="25" y="{y}" width="650" height="{layer_height}" rx="12" class="layer-bg" stroke="{color}" stroke-opacity="0.25" />')
+        svg_parts.append(f'  <rect x="25" y="{y}" width="6" height="{layer_height}" rx="3" fill="{color}" />')
+
         # Layer title
-        svg_parts.append(f'  <text x="40" y="{y + 24}" fill="{color}" class="layer-title">{label}</text>')
+        svg_parts.append(f'  <text x="44" y="{y + 22}" fill="{color}" class="layer-title">{label}</text>')
 
         # Node pills
         if nodes:
             num_nodes = len(nodes)
-            spacing = min(130, 580 // (num_nodes - 1)) if num_nodes > 1 else 130
-            y_offset = y + 58
-            pill_w = 114
-            pill_h = 32
-            
-            for j, node in enumerate(nodes):
-                node_x_center = 350 - (num_nodes - 1) * spacing // 2 + j * spacing
-                pill_x = node_x_center - pill_w // 2
-                pill_y = y_offset - pill_h // 2
-                node_lbl = node.get("label", "")
-                
-                svg_parts.append(f'  <rect x="{pill_x}" y="{pill_y}" width="{pill_w}" height="{pill_h}" rx="8" class="node-pill" />')
-                # Bullet dot indicator
-                svg_parts.append(f'  <circle cx="{pill_x + 12}" cy="{y_offset}" r="3.5" fill="{color}" />')
-                # Text
-                svg_parts.append(f'  <text x="{node_x_center + 6}" y="{y_offset + 1}" class="node-text">{node_lbl}</text>')
+            max_pill_w = 120
+            min_pill_w = 80
+            pill_h = 30
+            usable_w = 580  # inside the card (44..674)
+            spacing = min(max_pill_w + 14, (usable_w - min_pill_w) // max(1, num_nodes - 1)) if num_nodes > 1 else 0
+            total_pills_w = (num_nodes - 1) * spacing + max_pill_w
+            start_x = 44 + (usable_w - total_pills_w) // 2  # center horizontally
+            y_center = y + 60
 
-        # Connector
+            for j, node in enumerate(nodes):
+                node_lbl = _trunc(node.get("label", ""))
+                pill_w = max(min_pill_w, min(max_pill_w, len(node_lbl) * 7 + 24))
+                cx = start_x + j * spacing + pill_w // 2  # pill center x
+
+                pill_x = cx - pill_w // 2
+                pill_y = y_center - pill_h // 2
+
+                # Pill: tinted layer color background + colored border
+                svg_parts.append(f'  <rect x="{pill_x}" y="{pill_y}" width="{pill_w}" height="{pill_h}" rx="7" fill="{tint}" stroke="{color}" stroke-width="1.5" />')
+                # Colored dot
+                svg_parts.append(f'  <circle cx="{pill_x + 11}" cy="{y_center}" r="3" fill="{color}" />')
+                # Node label (colored text)
+                svg_parts.append(f'  <text x="{pill_x + 11 + 6 + (pill_w - 11 - 6) // 2}" y="{y_center + 1}" fill="{color}" class="node-text">{node_lbl}</text>')
+
+        # Connector between this layer and the next
         if idx < total_layers - 1:
             current_node_ids = {n["id"] for n in nodes}
-            next_nodes = layers[idx+1].get("nodes", [])
+            next_nodes = layers[idx + 1].get("nodes", [])
             next_node_ids = {n["id"] for n in next_nodes}
-            
-            layer_edge_labels = []
+
+            edge_labels = []
             for edge in edges:
                 if edge.get("from") in current_node_ids and edge.get("to") in next_node_ids:
                     lbl = edge.get("label", "")
-                    if lbl and lbl not in layer_edge_labels:
-                        layer_edge_labels.append(lbl)
-            
-            connector_label = f"{', '.join(layer_edge_labels)}" if layer_edge_labels else ""
-            y_connector_start = y + layer_height
-            y_connector_end = y_connector_start + layer_gap
-            
+                    if lbl and lbl not in edge_labels:
+                        edge_labels.append(lbl)
+
+            connector_label = edge_labels[0] if edge_labels else ""
+            y_start = y + layer_height
+            y_end = y_start + layer_gap
+            y_mid = (y_start + y_end) // 2
+
             svg_parts.append(f'  <!-- Connector Layer {idx} -> {idx+1} -->')
-            svg_parts.append(f'  <line x1="350" y1="{y_connector_start}" x2="350" y2="{y_connector_end - 6}" class="connector-line" />')
-            svg_parts.append(f'  <polygon points="346,{y_connector_end - 6} 354,{y_connector_end - 6} 350,{y_connector_end}" class="connector-arrow" />')
+            svg_parts.append(f'  <line x1="350" y1="{y_start}" x2="350" y2="{y_end - 7}" class="connector-line" />')
+            svg_parts.append(f'  <polygon points="346,{y_end - 7} 354,{y_end - 7} 350,{y_end}" class="connector-arrow" />')
             if connector_label:
-                svg_parts.append(f'  <text x="365" y="{y_connector_start + layer_gap // 2 + 3}" class="connector-text">{connector_label}</text>')
+                svg_parts.append(f'  <text x="350" y="{y_mid + 4}" class="connector-text">{connector_label}</text>')
 
     svg_parts.append('</svg>')
     return "\n".join(svg_parts)
 
 
 def generate_dep_graph_svg(dep_graph_data):
-    """Generate a premium, responsive SVG image for the module dependency graph.
-    Uses a pure-Python force-directed layout that is fast and completely self-contained.
+    """Generate an SVG dependency graph using a hierarchical column layout.
+
+    Nodes are classified by their edge connectivity and placed in columns:
+    - Sources  (only outgoing edges) → left column
+    - Hubs     (both in and out)     → centre column
+    - Sinks    (only incoming edges) → right column
+    - Isolated (no edges)            → compact grid at bottom
+
+    This approach produces a clear, readable left-to-right dependency flow
+    regardless of graph sparsity, avoiding the "all-nodes-pile-at-bottom"
+    problem that force-directed algorithms produce on sparse graphs.
 
     Args:
         dep_graph_data (dict): Dependency graph with "nodes" and "edges" lists.
@@ -1069,211 +1140,203 @@ def generate_dep_graph_svg(dep_graph_data):
         return '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30">No nodes in graph</text></svg>'
 
     import math
-    import random
 
-    # Seed random for a deterministic layout of the same graph
-    random.seed(42)
+    # ---------------------------------------------------------------
+    # 1. Classify nodes by connectivity
+    # ---------------------------------------------------------------
+    out_deg: dict = {n["id"]: 0 for n in nodes}
+    in_deg:  dict = {n["id"]: 0 for n in nodes}
+    for e in edges:
+        if e["from"] in out_deg:
+            out_deg[e["from"]] += 1
+        if e["to"] in in_deg:
+            in_deg[e["to"]] += 1
 
-    width, height = 800, 600
-    iterations = 100
-    num_nodes = len(nodes)
-
-    # Initialize positions along a circle to avoid overlapping starts
-    pos = {}
-    for i, node in enumerate(nodes):
-        angle = i * (2 * math.pi / max(1, num_nodes))
-        r = 180 + (i % 3) * 20
-        pos[node["id"]] = [
-            width / 2 + r * math.cos(angle),
-            height / 2 + r * math.sin(angle)
-        ]
-
-    # Force-directed layout parameters
-    k = math.sqrt((700 * 500) / max(1, num_nodes))
-    c_rep = 0.8
-    c_att = 1.2
-    t = 80.0
-    dt = t / iterations
-
-    for _ in range(iterations):
-        disp = {n["id"]: [0.0, 0.0] for n in nodes}
-
-        # Repulsive forces between all nodes
-        for i in range(num_nodes):
-            n1 = nodes[i]["id"]
-            for j in range(num_nodes):
-                if i == j:
-                    continue
-                n2 = nodes[j]["id"]
-                dx = pos[n1][0] - pos[n2][0]
-                dy = pos[n1][1] - pos[n2][1]
-                dist = math.hypot(dx, dy)
-                if dist == 0:
-                    dist = 0.1
-                f = (k * k * c_rep) / dist
-                disp[n1][0] += (dx / dist) * f
-                disp[n1][1] += (dy / dist) * f
-
-        # Attractive forces along edges
-        for edge in edges:
-            u, v = edge["from"], edge["to"]
-            if u not in pos or v not in pos:
-                continue
-            dx = pos[u][0] - pos[v][0]
-            dy = pos[u][1] - pos[v][1]
-            dist = math.hypot(dx, dy)
-            if dist == 0:
-                dist = 0.1
-            f = (dist * dist * c_att) / k
-            disp[u][0] -= (dx / dist) * f
-            disp[u][1] -= (dy / dist) * f
-            disp[v][0] += (dx / dist) * f
-            disp[v][1] += (dy / dist) * f
-
-        # Apply displacement limited by temperature
-        for n in nodes:
-            nid = n["id"]
-            dx, dy = disp[nid]
-            dist = math.hypot(dx, dy)
-            if dist > 0:
-                limited_dist = min(dist, t)
-                pos[nid][0] += (dx / dist) * limited_dist
-                pos[nid][1] += (dy / dist) * limited_dist
-
-            pos[nid][0] = max(60, min(width - 60, pos[nid][0]))
-            pos[nid][1] = max(40, min(height - 40, pos[nid][1]))
-
-        t -= dt
-
-    # Pre-calculate pill widths for exact boundary drawing
-    pill_widths = {}
-    pill_height = 24
+    sources, hubs, sinks, isolated = [], [], [], []
     for n in nodes:
-        lbl = n.get("label", "")
-        pill_widths[n["id"]] = max(70, len(lbl) * 7 + 16)
+        nid = n["id"]
+        _o, _i = out_deg.get(nid, 0), in_deg.get(nid, 0)
+        if _o > 0 and _i == 0:
+            sources.append(n)
+        elif _o > 0 and _i > 0:
+            hubs.append(n)
+        elif _i > 0 and _o == 0:
+            sinks.append(n)
+        else:
+            isolated.append(n)
 
-    # Normalize positions to fit the canvas perfectly with comfortable, width-aware margins
-    xs = [pos[n["id"]][0] for n in nodes]
-    ys = [pos[n["id"]][1] for n in nodes]
+    # Sort columns by connectivity (most connected first)
+    sources.sort(key=lambda n: out_deg.get(n["id"], 0), reverse=True)
+    hubs.sort(key=lambda n: out_deg.get(n["id"], 0) + in_deg.get(n["id"], 0), reverse=True)
+    sinks.sort(key=lambda n: in_deg.get(n["id"], 0), reverse=True)
 
-    if len(nodes) > 1:
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
+    # ---------------------------------------------------------------
+    # 2. Layout constants
+    # ---------------------------------------------------------------
+    SVG_W      = 800
+    PILL_H     = 26
+    ROW_STEP   = 42         # vertical distance between node centres in column
+    TOP_MARGIN = 60         # space for title + legend
+    COL_PAD    = 20         # horizontal padding inside column zone
 
-        span_x = max_x - min_x
-        span_y = max_y - min_y
+    # Three-column x-centre positions
+    COL_X = {
+        "source": 133,
+        "hub":    400,
+        "sink":   667,
+    }
 
-        for n in nodes:
-            nid = n["id"]
-            w = pill_widths[nid]
-            
-            # Constrain horizontally so that the pill is always fully visible (with a 15px margin)
-            min_allowed_x = w / 2 + 15
-            max_allowed_x = width - (w / 2 + 15)
-            
-            if span_x > 0:
-                pos_pct_x = (pos[nid][0] - min_x) / span_x
-                pos[nid][0] = min_allowed_x + pos_pct_x * (max_allowed_x - min_allowed_x)
-            else:
-                pos[nid][0] = width / 2
+    # ---------------------------------------------------------------
+    # 3. Node → (x, y) positions
+    # ---------------------------------------------------------------
+    pos: dict = {}          # node_id → [cx, cy]
+    max_rows = max(len(sources), len(hubs), len(sinks), 1)
+    col_height = TOP_MARGIN + max_rows * ROW_STEP + 20
 
-            # Constrain vertically so that the pill is always fully visible (with a 20px margin)
-            min_allowed_y = pill_height / 2 + 20
-            max_allowed_y = height - (pill_height / 2 + 20)
-            
-            if span_y > 0:
-                pos_pct_y = (pos[nid][1] - min_y) / span_y
-                pos[nid][1] = min_allowed_y + pos_pct_y * (max_allowed_y - min_allowed_y)
-            else:
-                pos[nid][1] = height / 2
-    else:
-        for n in nodes:
-            pos[n["id"]] = [width / 2, height / 2]
+    def _place_col(col_nodes, cx):
+        total = len(col_nodes)
+        start_y = TOP_MARGIN + (max_rows - total) * ROW_STEP // 2 + ROW_STEP // 2
+        for i, n in enumerate(col_nodes):
+            pos[n["id"]] = [cx, start_y + i * ROW_STEP]
 
+    _place_col(sources,  COL_X["source"])
+    _place_col(hubs,     COL_X["hub"])
+    _place_col(sinks,    COL_X["sink"])
 
+    # Isolated nodes go into a compact grid at the bottom
+    GRID_COLS      = 5
+    ISO_PILL_W     = 130
+    ISO_PILL_H     = 22
+    ISO_H_STEP     = 34
+    ISO_W_STEP     = 148
+    ISO_TOP        = col_height + 24
+    ISO_LEFT_START = (SVG_W - min(len(isolated), GRID_COLS) * ISO_W_STEP) // 2 + ISO_PILL_W // 2
 
-    svg_parts = [
+    for i, n in enumerate(isolated):
+        col_i = i % GRID_COLS
+        row_i = i // GRID_COLS
+        pos[n["id"]] = [ISO_LEFT_START + col_i * ISO_W_STEP, ISO_TOP + row_i * ISO_H_STEP]
+
+    iso_rows  = math.ceil(len(isolated) / GRID_COLS) if isolated else 0
+    iso_block = iso_rows * ISO_H_STEP + (30 if isolated else 0)
+    SVG_H     = ISO_TOP + iso_block + 20
+
+    # ---------------------------------------------------------------
+    # 4. Label helpers
+    # ---------------------------------------------------------------
+    MAX_LBL = 22
+
+    def _trunc(lbl):
+        return lbl if len(lbl) <= MAX_LBL else lbl[:MAX_LBL - 1] + "…"
+
+    def _pill_w(lbl):
+        return max(80, min(190, len(lbl) * 7 + 20))
+
+    def _node_color(lbl):
+        ll = lbl.lower()
+        if "controller" in ll or "handler" in ll:
+            return "#0071e3", "#005bb5", "#ffffff"
+        if "service" in ll or "manager" in ll:
+            return "#30d158", "#1a8c3a", "#ffffff"
+        if "repository" in ll or "repo" in ll or "context" in ll:
+            return "#ff9f0a", "#c47900", "#ffffff"
+        if "entity" in ll or "model" in ll or "domain" in ll:
+            return "#af52de", "#7a22b8", "#ffffff"
+        return "#f0f0f5", "#c7c7cc", "#1d1d1f"
+
+    # ---------------------------------------------------------------
+    # 5. SVG assembly
+    # ---------------------------------------------------------------
+    parts = [
         '<?xml version="1.0" encoding="UTF-8" standalone="no"?>',
-        '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{SVG_W}" height="{SVG_H}" viewBox="0 0 {SVG_W} {SVG_H}">',
         '  <defs>',
-        '    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">',
-        '      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#8e8e93" />',
+        '    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"',
+        '            markerWidth="5" markerHeight="5" orient="auto">',
+        '      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#8e8e93"/>',
         '    </marker>',
         '  </defs>',
-        '  <rect width="100%" height="100%" fill="#fafafa" rx="16" stroke="#e5e5ea" stroke-width="1.5" />',
+        f'  <rect width="{SVG_W}" height="{SVG_H}" fill="#fafafa" rx="12" stroke="#e5e5ea" stroke-width="1"/>',
         '  <style>',
-        '    .edge-line { stroke: #aeaeb2; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }',
-        '    .node-rect { stroke-width: 1.5; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.03)); }',
-        '    .node-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 10px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }',
-        '    .graph-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #1d1d1f; }',
+        '    .g-title { font: 700 14px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; fill:#1d1d1f; }',
+        '    .g-col   { font: 700 10px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; fill:#8e8e93; letter-spacing:.6px; }',
+        '    .g-sep   { fill: none; stroke: #e5e5ea; stroke-width: 1; stroke-dasharray: 4 4; }',
+        '    .g-lbl   { font: 600 10px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; text-anchor:middle; dominant-baseline:middle; }',
+        '    .g-iso   { font: 500 9px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; text-anchor:middle; dominant-baseline:middle; fill:#6e6e73; }',
+        '    .g-edge  { stroke:#c7c7cc; stroke-width:1.5; fill:none; marker-end:url(#arr); }',
         '  </style>',
-        '  <text x="30" y="35" class="graph-title">Module Dependency Graph</text>',
+        # Title
+        '  <text x="24" y="28" class="g-title">Module Dependency Graph</text>',
     ]
 
-    # Draw edge lines connecting the pill boundaries exactly
-    for edge in edges:
-        u_id, v_id = edge["from"], edge["to"]
-        if u_id not in pos or v_id not in pos:
+    # Column header labels (only when that column has nodes)
+    col_headers = [
+        (COL_X["source"], "SOURCES",  len(sources)),
+        (COL_X["hub"],    "HUBS",     len(hubs)),
+        (COL_X["sink"],   "TARGETS",  len(sinks)),
+    ]
+    for cx, lbl, cnt in col_headers:
+        if cnt:
+            parts.append(f'  <text x="{cx}" y="46" class="g-col" text-anchor="middle">{lbl} ({cnt})</text>')
+
+    # Vertical separator lines between columns
+    if len(sources) or len(hubs) or len(sinks):
+        for sx in [267, 533]:
+            parts.append(f'  <line x1="{sx}" y1="{TOP_MARGIN - 8}" x2="{sx}" y2="{col_height}" class="g-sep"/>')
+
+    # ----------- Draw edges (bezier curves between pill boundaries) -----------
+    for e in edges:
+        uid, vid = e["from"], e["to"]
+        if uid not in pos or vid not in pos:
             continue
+        ux, uy = pos[uid]
+        vx, vy = pos[vid]
 
-        # Find node dicts
-        u_node = next((n for n in nodes if n["id"] == u_id), None)
-        v_node = next((n for n in nodes if n["id"] == v_id), None)
-        if not u_node or not v_node:
-            continue
+        u_lbl = next((n.get("label","") for n in nodes if n["id"] == uid), "")
+        v_lbl = next((n.get("label","") for n in nodes if n["id"] == vid), "")
+        uw = _pill_w(_trunc(u_lbl)) / 2
+        vw = _pill_w(_trunc(v_lbl)) / 2
 
-        x1, y1 = pos[u_id]
-        x2, y2 = pos[v_id]
+        # Start from right edge of source pill, end at left edge of target pill
+        x1 = ux + uw
+        y1 = uy
+        x2 = vx - vw - 6   # leave 6px gap for arrowhead
+        y2 = vy
+        cp_x = (x1 + x2) / 2
+        parts.append(f'  <path d="M {x1:.0f},{y1:.0f} C {cp_x:.0f},{y1:.0f} {cp_x:.0f},{y2:.0f} {x2:.0f},{y2:.0f}" class="g-edge"/>')
 
-        dx = x2 - x1
-        dy = y2 - y1
-        d = math.hypot(dx, dy)
-        if d > 0:
-            ux = dx / d
-            uy = dy / d
+    # ----------- Draw connected node pills -----------
+    for col_nodes in (sources, hubs, sinks):
+        for n in col_nodes:
+            nid = n["id"]
+            lbl_full = n.get("label", "")
+            lbl = _trunc(lbl_full)
+            cx, cy = pos[nid]
+            w = _pill_w(lbl)
+            fill, stroke, font_c = _node_color(lbl_full)
+            rx_pill = cx - w / 2
+            ry_pill = cy - PILL_H / 2
+            parts.append(f'  <rect x="{rx_pill:.0f}" y="{ry_pill:.0f}" width="{w}" height="{PILL_H}" rx="6" fill="{fill}" stroke="{stroke}" stroke-width="1.5"/>')
+            parts.append(f'  <text x="{cx:.0f}" y="{cy + 1:.0f}" fill="{font_c}" class="g-lbl">{lbl}</text>')
 
-            w1 = pill_widths[u_id]
-            h1 = pill_height
-            offset1 = min((w1 / 2) / max(0.001, abs(ux)), (h1 / 2) / max(0.001, abs(uy)))
+    # ----------- Isolated grid -----------
+    if isolated:
+        parts.append(f'  <text x="24" y="{ISO_TOP - 10}" class="g-col">ALL MODULES ({len(isolated)})</text>')
+        for n in isolated:
+            nid = n["id"]
+            lbl_full = n.get("label", "")
+            lbl = _trunc(lbl_full)
+            cx, cy = pos[nid]
+            w = ISO_PILL_W
+            fill, stroke, font_c = _node_color(lbl_full)
+            # Isolated nodes use a lighter style (no color fill unless role-named)
+            if fill == "#f0f0f5":
+                fill, stroke, font_c = "#ffffff", "#d1d1d6", "#6e6e73"
+            rx_pill = cx - w / 2
+            ry_pill = cy - ISO_PILL_H / 2
+            parts.append(f'  <rect x="{rx_pill:.0f}" y="{ry_pill:.0f}" width="{w}" height="{ISO_PILL_H}" rx="5" fill="{fill}" stroke="{stroke}" stroke-width="1"/>')
+            parts.append(f'  <text x="{cx:.0f}" y="{cy + 1:.0f}" fill="{font_c}" class="g-iso">{lbl}</text>')
 
-            w2 = pill_widths[v_id]
-            h2 = pill_height
-            offset2 = min((w2 / 2) / max(0.001, abs(ux)), (h2 / 2) / max(0.001, abs(uy)))
-
-            x_start = x1 + ux * offset1
-            y_start = y1 + uy * offset1
-            x_end = x2 - ux * (offset2 + 7)  # leave space for the arrow head marker
-            y_end = y2 - uy * (offset2 + 7)
-
-            svg_parts.append(f'  <line x1="{x_start:.1f}" y1="{y_start:.1f}" x2="{x_end:.1f}" y2="{y_end:.1f}" class="edge-line" />')
-
-    # Draw node pills
-    for n in nodes:
-        lbl = n.get("label", "")
-        nid = n["id"]
-        x, y = pos[nid]
-        w = pill_widths[nid]
-        h = pill_height
-
-        rx = x - w / 2
-        ry = y - h / 2
-
-        # Role-based color matching
-        if "controller" in lbl.lower() or "handler" in lbl.lower():
-            fill, stroke, font = "#0071e3", "#005bb5", "#ffffff"
-        elif "service" in lbl.lower() or "manager" in lbl.lower():
-            fill, stroke, font = "#30d158", "#1a8c3a", "#ffffff"
-        elif "repository" in lbl.lower() or "repo" in lbl.lower():
-            fill, stroke, font = "#ff9f0a", "#c47900", "#ffffff"
-        elif "entity" in lbl.lower() or "model" in lbl.lower() or "dto" in lbl.lower() or "domain" in lbl.lower():
-            fill, stroke, font = "#af52de", "#7a22b8", "#ffffff"
-        else:
-            fill, stroke, font = "#ffffff", "#d1d1d6", "#1d1d1f"
-
-        svg_parts.append(f'  <!-- Node {nid}: {lbl} -->')
-        svg_parts.append(f'  <rect x="{rx:.1f}" y="{ry:.1f}" width="{w}" height="{h}" rx="6" fill="{fill}" stroke="{stroke}" class="node-rect" />')
-        svg_parts.append(f'  <text x="{x:.1f}" y="{y + 1:.1f}" fill="{font}" class="node-text">{lbl}</text>')
-
-    svg_parts.append('</svg>')
-    return "\n".join(svg_parts)
+    parts.append('</svg>')
+    return "\n".join(parts)
 

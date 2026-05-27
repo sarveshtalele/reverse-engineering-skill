@@ -103,30 +103,37 @@ python -c "import pathlib; print('ready' if pathlib.Path('reverse_engineer_skill
 ### Step 3a — Script found: Run static analysis
 
 ```bash
-python reverse_engineer_skill.py $ARGUMENTS
+python reverse_engineer_skill.py $ARGUMENTS --heuristic
 ```
 
 **Do NOT run `git clone` before this.** The script clones internally.
 
-The script uses **pure static heuristics** — no API keys, no network calls
+The `--heuristic` flag skips the interactive mode-selection prompt (since Claude Code
+IS the AI layer here). If the user passed `--ai` in `$ARGUMENTS`, the script will
+use Claude API for richer output file content instead.
+
+The script uses **layer-balanced static analysis** — no API keys, no network calls
 beyond the initial git clone.
 
 **Pipeline stages:**
 1. Clone — shallow `git clone --depth=1` to a temp directory
 2. Load — discover source files (Python, Java, C#/.NET, JS/TS, up to 300 files)
-3. Parse — extract classes, methods, routes, ORM entities
+3. Parse — extract classes, methods, routes, ORM entities (300-file layer-balanced cap)
 4. Metrics — file/class/method counts, dependency graph
 5. API & Dead Code — endpoints, database schema, tech stack, block diagram
-6. Heuristics — static executive summary, business domain, modernisation roadmap
-7. Generate — SDD JSON, HTML dashboard, Markdown report
+6. Analysis — static heuristics (or Claude API if `--ai` flag passed)
+7. Generate — SDD JSON, HTML dashboard, Markdown report, SVG diagrams
 8. Evaluate — 100-point quality scorer
+9. Cleanup — remove temp clone directory
 
 **Output files in `./outputs/{repo_name}/`:**
-- `{repo_name}_sdd.json`        — 14-section System Design Document
-- `{repo_name}_dashboard.html`  — Dashboard with block diagram & business logic
-- `{repo_name}_report.md`       — 12-section Markdown technical report
-- `{repo_name}_evaluation.md`   — 100-point quality evaluation
-- `manifest.json`               — Run record with file sizes
+- `{repo_name}_sdd.json`              — 14-section System Design Document
+- `{repo_name}_dashboard.html`        — Dashboard with block diagram & business logic
+- `{repo_name}_report.md`             — 12-section Markdown technical report
+- `{repo_name}_evaluation.md`         — 100-point quality evaluation
+- `{repo_name}_block_diagram.svg`     — Architecture block diagram (SVG)
+- `{repo_name}_dependency_graph.svg`  — Module dependency graph (SVG)
+- `manifest.json`                     — Run record with file sizes
 
 ---
 
@@ -250,19 +257,19 @@ Present your complete AI analysis clearly using markdown formatting:
 
 ---
 
-### Step 7 — Offer to write AI content back to files
+### Step 7 — Write AI content directly into the report (no prompt needed)
 
-After presenting the analysis in chat, offer:
+**Do NOT ask the user** — automatically update the report file immediately after presenting the analysis in chat.
 
-> "I can write this AI analysis into your report file so it includes the
-> AI-generated content. Would you like me to update:
-> 1. `{repo}_report.md` — Section 1 (Executive Summary) and Section 2 (Business Logic)
-> 2. Both the report and save a separate AI-summary.md?"
+Edit `outputs/<repo_name>/<repo_name>_report.md`:
+- Replace Section 1 (Executive Summary) with your AI-generated executive summary
+- Replace Section 2 (Business Logic) with your full AI-generated business logic analysis
+- Replace (or append to) Section 4 (Architecture Overview) with your block diagram walkthrough
 
-If the user says yes, edit the Markdown report:
-- Replace Section 1 (Executive Summary) with your AI-generated version
-- Replace Section 2 (Business Logic) with your full AI-generated business logic
-- Add the block diagram walkthrough to Section 4 (Architecture Overview)
+Print a one-line confirmation after writing:
+```
+  [ok] AI analysis written to outputs/<repo_name>/<repo_name>_report.md
+```
 
 ---
 
@@ -274,7 +281,7 @@ Reverse engineering complete for: {repo_name}
 Output files (./outputs/{repo_name}/):
   {repo_name}_sdd.json         — System Design Document (14 sections)
   {repo_name}_dashboard.html   — Dashboard (block diagram + business logic)
-  {repo_name}_report.md        — Technical Report (12 sections, AI-enhanced)
+  {repo_name}_report.md        — Technical Report (12 sections, AI-enhanced and written automatically)
   {repo_name}_evaluation.md    — Quality Evaluation
   manifest.json                — Run Manifest
 
@@ -324,26 +331,28 @@ Then proceed with Steps 4–8 above.
 
 ## Notes
 
-- **Zero API keys required** — Claude Code (you) IS the AI engine
-- **Zero Python dependencies** — only stdlib + git needed
+- **Zero API keys required by default** — Claude Code (you) IS the AI engine; heuristic mode needs no keys
+- **Optional `--ai` flag** — pass `--ai` to use Claude API for richer content written directly into output files (`ANTHROPIC_API_KEY` env var required; `pip install anthropic`)
+- **Zero Python dependencies** — only stdlib + git needed (stdlib only for heuristic mode)
 - **GitHub Copilot users**: See `.github/prompts/reverse-engineer.prompt.md`
 - Templates in `templates/` define exact schemas
 - The HTML dashboard is fully self-contained — open in any browser without a server
 - Supports: Python, Java, C#/.NET, JavaScript, TypeScript (+JSX/TSX)
+- SVG diagrams use hierarchical column layout (dependency graph) and tinted layer colors (block diagram)
 
 ## Key project files
 
 | File | Purpose |
 |------|---------|
-| `reverse_engineer_skill.py` | CLI entry point (no flags needed) |
-| `engine/pipeline.py` | 8-stage orchestrator |
-| `engine/analyzer.py` | 14 analysis functions |
-| `engine/ai_analysis.py` | Pure static heuristics (no API calls) |
+| `reverse_engineer_skill.py` | CLI entry point; `--heuristic` / `--ai` / `--no-ai` flags |
+| `engine/pipeline.py` | 9-stage orchestrator (clone → load → parse → analyze → API → AI → generate → evaluate → cleanup) |
+| `engine/analyzer.py` | 13+ analysis functions including SVG diagram generators |
+| `engine/ai_analysis.py` | Static heuristics + optional Claude API integration (`ai_all_sections_claude`) |
 | `engine/parsers.py` | 5 language parsers + ORM entity extractors |
 | `engine/evaluator.py` | 100-point quality scorer |
 | `engine/generators/sdd.py` | SDD JSON builder (14 sections) |
 | `engine/generators/report.py` | Markdown report builder (12 sections) |
-| `engine/generators/dashboard.py` | HTML dashboard (6 sections, self-contained) |
+| `engine/generators/dashboard.py` | Apple-theme HTML dashboard (6 sections, self-contained) |
 | `SETUP.md` | Full setup guide |
 | `COMPONENTS.md` | Function-by-function reference |
 | `ARCHITECTURE.md` | Deep technical reference |

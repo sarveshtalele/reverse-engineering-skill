@@ -28,7 +28,6 @@ from engine.analyzer import (
     detect_platform,
     detect_architecture_layers,
     extract_external_deps,
-    generate_block_diagram_dot,
 )
 
 
@@ -422,12 +421,9 @@ AI engines and stakeholders can navigate the cloned codebase files to verify and
     # Block Diagram formatting
     # ------------------------------------------------------------------
     ascii_diagram = ""
-    dot_diagram = ""
     if isinstance(block_diagram, dict):
         ascii_diagram = render_ascii_block_diagram(block_diagram)
-        dot_diagram = generate_block_diagram_dot(block_diagram)
     else:
-        dot_diagram = str(block_diagram or 'digraph G { A [label="No diagram generated"]; }')
         ascii_diagram = "No visual diagram available."
 
     # ------------------------------------------------------------------
@@ -552,14 +548,6 @@ AI engines and stakeholders can navigate the cloned codebase files to verify and
 ```
 </details>
 
-<details>
-<summary><b>Show Graphviz DOT Source Code (Developer View)</b></summary>
-
-```dot
-{dot_diagram}
-```
-</details>
-
 > The block diagram above shows the detected architectural layers — controllers,
 > services, repositories, database entities, and external integrations — auto-generated
 > from static class name analysis. No AI or API key required.
@@ -567,14 +555,6 @@ AI engines and stakeholders can navigate the cloned codebase files to verify and
 ### Module Dependency Graph
 
 ![Module Dependency Graph]({repo_name}_dependency_graph.svg)
-
-<details>
-<summary><b>Show Graphviz DOT Source Code (Developer View)</b></summary>
-
-```dot
-{graphviz_code}
-```
-</details>
 
 > The dependency graph above shows inter-module dependencies extracted from
 > import/using statements. Standard library imports are excluded.

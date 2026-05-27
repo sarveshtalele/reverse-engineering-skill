@@ -16,7 +16,17 @@
       "Bash(python -c \"import json; m=json.load\\(open\\('outputs/nopCommerce/manifest.json'\\)\\); print\\(json.dumps\\(m, indent=2\\)\\)\")",
       "Bash(python -c \"from engine.parsers import parse_dotnet; from engine.analyzer import detect_database_schema, suggest_microservice_data_boundaries; from engine.pipeline import run_pipeline; print\\('Imports OK'\\)\")",
       "Bash(node --check \"C:\\\\Users\\\\SarveshTalele\\\\Downloads\\\\reverse-eng-proj\\\\_jschk.js\")",
-      "Bash(python -c \"from engine.evaluator import evaluate_pipeline_output, write_evaluation_md; print\\('Import OK'\\)\")"
+      "Bash(python -c \"from engine.evaluator import evaluate_pipeline_output, write_evaluation_md; print\\('Import OK'\\)\")",
+      "Bash(npm root *)",
+      "Bash(node build_presentation.js)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\SarveshTalele\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\35c32442-2971-40f6-ba21-25915a81ea8e\\\\367e5eb8-c353-4966-8e18-e632c78b69ad\\\\skills\\\\pptx\\\\scripts\" -Recurse)",
+      "Bash(Select-Object -First 30)",
+      "Bash(python C:/Users/SarveshTalele/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/35c32442-2971-40f6-ba21-25915a81ea8e/367e5eb8-c353-4966-8e18-e632c78b69ad/skills/pptx/scripts/office/soffice.py --headless --convert-to pdf Reverse_Engineer_Skill_Stakeholder_Presentation.pptx)",
+      "Bash(python -c \"import zipfile; z = zipfile.ZipFile\\('C:/Users/SarveshTalele/Downloads/reverse-eng-proj/Reverse_Engineer_Skill_Stakeholder_Presentation.pptx'\\); print\\('Valid PPTX, slides:', len\\([n for n in z.namelist\\(\\) if n.startswith\\('ppt/slides/slide'\\) and n.endswith\\('.xml'\\)]\\)\\)\")",
+      "Bash(where soffice *)",
+      "Bash(where libreoffice *)",
+      "Bash(where pdftoppm *)",
+      "Bash(python reverse_engineer_skill.py https://github.com/initcron/productlaunch --heuristic)"
     ]
   }
 }

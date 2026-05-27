@@ -186,18 +186,21 @@ claude
 
 **What happens internally:**
 
-```
-Claude reads: .claude/commands/reverse-engineer.md
-  │
-  ├─ Checks: test -f reverse_engineer_skill.py   → found
-  │
-  └─ Runs:   python reverse_engineer_skill.py https://github.com/nopSolutions/nopCommerce
-               │
-               ├─ Clones to temp dir (auto-cleaned after)
-               ├─ Layer-balanced file selection (300-file cap)
-               ├─ Detects API endpoints, entities, dead code
-               ├─ Generates outputs/nopCommerce/ (5 files)
-               └─ Reports summary + quality score in chat
+```mermaid
+flowchart TD
+    A["/reverse-engineer\nhttps://github.com/nopSolutions/nopCommerce"]
+    A --> B["Claude reads\n.claude/commands/reverse-engineer.md"]
+    B --> C["python reverse_engineer_skill.py\nhttps://github.com/nopSolutions/nopCommerce"]
+    C --> D["Clones to temp dir\nauto-cleaned after run"]
+    C --> E["Layer-balanced\nfile selection ≤300"]
+    C --> F["Detects API endpoints,\nentities, dead code"]
+    D & E & F --> G["Generates outputs/nopCommerce/\n5 files written"]
+    G --> H["Summary + quality score\nreported in Claude Code chat"]
+
+    style A fill:#1E2761,color:#CADCFC
+    style C fill:#1D4ED8,color:#ffffff
+    style G fill:#10B981,color:#ffffff
+    style H fill:#1E2761,color:#CADCFC
 ```
 
 > **Important:** The slash command runs `python reverse_engineer_skill.py` directly — it does **not** run `git clone` separately first. The script handles cloning internally. If you see Claude trying to clone manually, your command file may be out of date.

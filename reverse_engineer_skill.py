@@ -49,6 +49,53 @@ from engine.pipeline import run_pipeline
 _HELP = __doc__
 
 
+def _ask_mode(args: list) -> str:
+    """Ask the user to choose analysis mode, unless overridden by a CLI flag.
+
+    Returns:
+        ``"ai"`` or ``"heuristic"``.
+    """
+    if "--ai" in args:
+        return "ai"
+    if "--heuristic" in args or "--no-ai" in args:
+        return "heuristic"
+
+    print()
+    print("  ┌──────────────────────────────────────────────┐")
+    print("  │  Select Analysis Mode                        │")
+    print("  ├──────────────────────────────────────────────┤")
+    print("  │  [1] Heuristic-only  (fast, no API key)      │")
+    print("  │  [2] AI-powered      (Claude API, richer)    │")
+    print("  └──────────────────────────────────────────────┘")
+    print()
+    try:
+        choice = input("  Enter choice [1]: ").strip() or "1"
+    except (EOFError, KeyboardInterrupt):
+        choice = "1"
+        print()
+
+    if choice == "2":
+        import os
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            print()
+            print("  [!] ANTHROPIC_API_KEY environment variable not set.")
+            print("      Set it with:  set ANTHROPIC_API_KEY=sk-ant-...")
+            print("      Falling back to heuristic mode.\n")
+            return "heuristic"
+        try:
+            import anthropic  # noqa: F401
+        except ImportError:
+            print()
+            print("  [!] 'anthropic' package not installed.")
+            print("      Install with:  pip install anthropic")
+            print("      Falling back to heuristic mode.\n")
+            return "heuristic"
+        print()
+        return "ai"
+    print()
+    return "heuristic"
+
+
 def main() -> None:
     """CLI entry point. Parses arguments and starts the pipeline."""
     args = sys.argv[1:]
@@ -57,17 +104,15 @@ def main() -> None:
         print(_HELP)
         sys.exit(0 if args else 1)
 
-    # Extract URL (first positional arg — ignore any legacy --no-ai flag)
+    # Extract URL (first positional arg — ignore flag arguments)
     repo_url = next((a for a in args if not a.startswith("--")), None)
     if not repo_url:
         print("Error: No GitHub URL provided.\n")
         print("Usage: python reverse_engineer_skill.py <github-repo-url>")
         sys.exit(1)
 
-    if "--no-ai" in args:
-        print("  [info] --no-ai flag ignored — this build uses pure static heuristics by default.\n")
-
-    run_pipeline(repo_url)
+    mode = _ask_mode(args)
+    run_pipeline(repo_url, mode=mode)
 
 
 if __name__ == "__main__":

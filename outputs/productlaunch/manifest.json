@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-05-27T05:09:47.428381+00:00Z",
+  "repo_name": "productlaunch",
+  "output_directory": "outputs\\productlaunch",
+  "files_written": [
+    {
+      "file": "productlaunch_sdd.json",
+      "type": "json",
+      "size": 89827
+    },
+    {
+      "file": "productlaunch_dashboard.html",
+      "type": "text",
+      "size": 89993
+    },
+    {
+      "file": "productlaunch_report.md",
+      "type": "text",
+      "size": 26541
+    },
+    {
+      "file": "productlaunch_block_diagram.svg",
+      "type": "text",
+      "size": 6299
+    },
+    {
+      "file": "productlaunch_dependency_graph.svg",
+      "type": "text",
+      "size": 15815
+    }
+  ],
+  "metrics": {
+    "files_analyzed": 73,
+    "classes": 59,
+    "methods": 461,
+    "api_endpoints": 0,
+    "dead_files": 66,
+    "primary_language": "dotnet"
+  }
+}

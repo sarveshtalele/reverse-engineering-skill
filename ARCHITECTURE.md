@@ -40,34 +40,42 @@ This document is the authoritative technical reference for the project. It cover
 
 The Reverse Engineer Skill is a **pure-Python static analysis engine** that accepts any public GitHub repository URL and produces five professional output files — without executing the analysed code.
 
-```
-Input:  GitHub URL
-        │
-        ▼
-  reverse_engineer_skill.py   (42-line entry point)
-        │
-        ▼
-  engine/pipeline.py          (9-stage orchestrator)
-        │
-  ┌─────┴──────────────────────────────────────────┐
-  │  engine/loaders.py         File discovery        │
-  │  engine/parsers.py         5 lang parsers +      │
-  │                            ORM entity extractors │
-  │  engine/analyzer.py        13 analysis functions │
-  │  engine/ai_analysis.py     Claude API            │
-  │  engine/evaluator.py       Quality scorer        │
-  │  engine/output_manager.py  File writer           │
-  │  engine/generators/        3 output builders     │
-  └────────────────────────────────────────────────┘
-        │
-  ┌─────┴──────────────────────────┐
-  │  outputs/{repo}/               │
-  │  ├── {repo}_sdd.json           │
-  │  ├── {repo}_dashboard.html     │
-  │  ├── {repo}_report.md          │
-  │  ├── {repo}_evaluation.md      │
-  │  └── manifest.json             │
-  └────────────────────────────────┘
+```mermaid
+flowchart TD
+    A([fa:fa-link GitHub URL]) --> B
+
+    B["reverse_engineer_skill.py\n— 42-line CLI entry point —"]
+    B --> C
+
+    C["engine/pipeline.py\n— 9-stage orchestrator —"]
+
+    C --> D["engine/loaders.py\nFile discovery"]
+    C --> E["engine/parsers.py\n5 lang parsers + ORM extractors"]
+    C --> F["engine/analyzer.py\n13 analysis functions"]
+    C --> G["engine/ai_analysis.py\nClaude Sonnet API"]
+    C --> H["engine/ai_analysis.py\nHeuristic fallbacks"]
+    C --> I["engine/evaluator.py\n100-pt quality scorer"]
+    C --> J["engine/output_manager.py\nFile writer + tracker"]
+    C --> K["engine/generators/\nsdd · dashboard · report"]
+
+    D & E & F & G & H & I & J & K --> OUT
+
+    OUT["outputs/{repo}/"]
+    OUT --> O1["{repo}_sdd.json\n14-section SDD"]
+    OUT --> O2["{repo}_dashboard.html\nApple-theme dashboard"]
+    OUT --> O3["{repo}_report.md\n12-section Markdown"]
+    OUT --> O4["{repo}_evaluation.md\n100-pt quality score"]
+    OUT --> O5["manifest.json\nRun record"]
+
+    style A fill:#1E2761,color:#CADCFC
+    style B fill:#0D1658,color:#CADCFC
+    style C fill:#1D4ED8,color:#ffffff
+    style OUT fill:#1E2761,color:#CADCFC
+    style O1 fill:#4F8EF7,color:#ffffff
+    style O2 fill:#10B981,color:#ffffff
+    style O3 fill:#8B5CF6,color:#ffffff
+    style O4 fill:#F59E0B,color:#ffffff
+    style O5 fill:#64748B,color:#ffffff
 ```
 
 ---
@@ -145,72 +153,65 @@ templates/
 
 ## 3. Data Flow — End to End
 
+```mermaid
+flowchart TD
+    IN([GitHub URL]) --> S1
+
+    S1["Stage 1 — Clone\ngit clone --depth=1\n~30–90s for large repos"]
+    S1 --> S2
+
+    S2["Stage 2 — Load Files\nos.walk · skip SKIP_DIRS\nread SUPPORTED_EXTENSIONS"]
+    S2 --> S3
+
+    S3["Stage 3 — Layer-Balanced Cap\nSLOTS = 75·75·40·60·30·20\nGuarantees entity files always covered"]
+    S3 --> S4
+
+    S4["Stage 4 — Parse Code  ×300 files\nparse_python · parse_java\nparse_dotnet · parse_js_ts"]
+    S4 --> S5
+
+    S5["Stage 5 — Analysis Engine\nmetrics · dependency map · Mermaid\nAPIs · dead code · tech stack · entities"]
+    S5 --> S6
+
+    S6["Stage 6 — AI Analysis\nai_executive_summary\nai_modernization_roadmap\nai_business_logic_analysis\n+ heuristic fallbacks if no key"]
+    S6 --> S7
+
+    S7["Stage 7 — Generate + Write\nOutputManager creates outputs/{repo}/\nsdd.json · dashboard.html · report.md\nmanifest.json"]
+    S7 --> S8
+
+    S8["Stage 8 — Evaluate\nevaluate_pipeline_output\n100-pt PASS/WARN/FAIL score\nwrites {repo}_evaluation.md"]
+    S8 --> S9
+
+    S9["Stage 9 — Cleanup\nshutil.rmtree temp clone\nalways runs, even on exception"]
+    S9 --> OUT
+
+    OUT(["5 files in outputs/{repo}/"])
+
+    style IN  fill:#1E2761,color:#CADCFC
+    style S1  fill:#1E40AF,color:#ffffff
+    style S2  fill:#1D4ED8,color:#ffffff
+    style S3  fill:#2563EB,color:#ffffff
+    style S4  fill:#3B82F6,color:#ffffff
+    style S5  fill:#60A5FA,color:#1E293B
+    style S6  fill:#8B5CF6,color:#ffffff
+    style S7  fill:#10B981,color:#ffffff
+    style S8  fill:#F59E0B,color:#ffffff
+    style S9  fill:#64748B,color:#ffffff
+    style OUT fill:#1E2761,color:#CADCFC
 ```
-GitHub URL  (e.g. https://github.com/nopSolutions/nopCommerce)
-    │
-    ▼ Stage 1: clone_repo()
-    git clone --depth=1 <url> → temp dir    [~30-90s for large repos]
-    │
-    ▼ Stage 2: load_repo()
-    os.walk() → skip SKIP_DIRS → read files matching SUPPORTED_EXTENSIONS
-    Returns: list of {path, content} dicts  [3,114 files for nopCommerce]
-    │
-    ▼ Stage 3: Layer-balanced file cap
-    if len(files) > 300:
-        SLOTS = {0:75, 1:75, 2:40, 3:60, 4:30, 5:20}   # per-layer quotas
-        _layer(f) → 0=controllers, 1=services, 2=repos,
-                    3=domain/entity, 4=models/dtos, 5=rest
-        files = layer-balanced selection ≤ 300
-    [Guarantees domain/entity files always appear even when ctrl+svc alone > 300]
-    │
-    ▼ Stage 3 cont.: parse_file() [× up to 300]
-    detect_language() → dispatch to:
-      parse_python()   → classes, methods, Flask/FastAPI routes, SQLAlchemy/Django entities
-      parse_java()     → classes, methods, Spring routes, JPA/Hibernate entities
-      parse_dotnet()   → classes, interfaces, ASP.NET routes, EF Core entities
-      parse_js_ts()    → classes, functions, Express routes
-    Returns: list of parsed dicts (each includes "db_entities" key)
-    │
-    ▼ Stage 4: Analysis Engine
-    generate_report()                → {total_files, total_classes, total_methods, languages}
-    build_dependency_map()           → {module_stem: set(dependencies)}
-    generate_mermaid()               → Mermaid graph TD string (≤80 edges)
-    find_top_modules()               → [(module, connection_count), ...] top 10
-    │
-    ▼ Stage 5: APIs & Dead Code
-    extract_api_endpoints()          → flat list of {path, methods, class, method, file}
-    generate_openapi_spec()          → OpenAPI 3.0 JSON dict
-    detect_dead_code()               → {dead_files: [...], dead_classes: [...]}
-    detect_tech_stack()              → ["ASP.NET Core", "Docker", ...]
-    detect_database_schema()         → {entity_count, relationship_count, entities: [...]}
-    │
-    ▼ Stage 6: AI Analysis (requires ANTHROPIC_API_KEY)
-    ai_executive_summary()           → {purpose, architecture_pattern, tech_debt_concerns, priority}
-    ai_modernization_roadmap()       → {phases, target_stack, microservices, effort, risk_factors}
-    ai_business_logic_analysis()     → {business_domain, what_it_does, core_workflows,
-                                        user_roles, key_business_rules, data_entities_explained,
-                                        integrations, fallback_used}
-    detect_platform()                → ".NET / Windows Server"
-    detect_architecture_layers()     → ["API Layer", "Service Layer", ...]
-    suggest_microservice_data_boundaries() → [{name, entities, color, entity_count}, ...]
-    [All three AI functions fall back to deterministic heuristics if API key is absent or call fails]
-    │
-    ▼ Stage 7: OutputManager + Generators
-    om = OutputManager(repo_name)               → creates outputs/{repo_name}/
-    generate_sdd(...)          → dict           → om.write_json("{repo}_sdd.json")
-    generate_html_dashboard(…) → str            → om.write_text("{repo}_dashboard.html")
-    generate_md_report(...)    → str            → om.write_text("{repo}_report.md")
-    om.write_manifest(...)                      → manifest.json with metrics + file sizes
-    │
-    ▼ Stage 8: Evaluator
-    evaluate_pipeline_output(...)    → {total_score, confidence, sections, recommendations}
-    write_evaluation_md(evaluation)  → str      → om.write_text("{repo}_evaluation.md")
-    [100-pt quality score across 6 sections: PASS/WARN/FAIL per check]
-    │
-    ▼ Stage 9: Cleanup + Console summary
-    shutil.rmtree(tmp_dir)           → temp clone deleted even on exception
-    Console prints: file list, analysis metrics, quality score table
-```
+
+**Key function calls per stage:**
+
+| Stage | Primary Functions | Returns |
+|-------|------------------|---------|
+| 1 Clone | `clone_repo(url, target_dir)` | temp dir path |
+| 2 Load | `load_repo(repo_path)` | `[{path, content}]` |
+| 3 Cap | `_layer(f)` + SLOTS quota | `files ≤ 300` |
+| 4 Parse | `parse_file(f)` → `parse_python/java/dotnet/js_ts` | `[parsed_dict]` |
+| 5 Analyze | `generate_report` · `build_dependency_map` · `extract_api_endpoints` · `detect_dead_code` · `detect_database_schema` | analysis dicts |
+| 6 AI | `ai_executive_summary` · `ai_modernization_roadmap` · `ai_business_logic_analysis` | structured dicts (or heuristic fallbacks) |
+| 7 Generate | `generate_sdd` · `generate_html_dashboard` · `generate_md_report` · `write_manifest` | 4 files written |
+| 8 Evaluate | `evaluate_pipeline_output` · `write_evaluation_md` | 1 evaluation file |
+| 9 Cleanup | `shutil.rmtree(tmp_dir)` | temp dir deleted |
 
 ---
 
@@ -816,16 +817,22 @@ When `/reverse-engineer <url>` is typed:
 
 **Command flow:**
 
-```
-User: /reverse-engineer https://github.com/owner/repo
-  │
-  ├─ bash: test -f reverse_engineer_skill.py   → "found"
-  │
-  └─ bash: python reverse_engineer_skill.py "https://github.com/owner/repo"
-              │
-              ├─ runs all 9 pipeline stages
-              ├─ generates outputs/{repo}/  (5 files)
-              └─ prints summary + quality score
+```mermaid
+flowchart LR
+    A["User types:\n/reverse-engineer\nhttps://github.com/owner/repo"]
+    A --> B["Claude reads\n.claude/commands/\nreverse-engineer.md"]
+    B --> C{"script\nexists?"}
+    C -->|"yes"| D["bash: python reverse_engineer_skill.py\n'https://github.com/owner/repo'"]
+    C -->|"no"| E["Claude uses Glob/Read/Grep\nmanual analysis fallback"]
+    D --> F["9-stage pipeline\nruns internally"]
+    F --> G["outputs/{repo}/\n5 files generated"]
+    G --> H["Summary + quality\nscore in chat"]
+
+    style A fill:#1E2761,color:#CADCFC
+    style D fill:#10B981,color:#ffffff
+    style E fill:#F59E0B,color:#ffffff
+    style G fill:#4F8EF7,color:#ffffff
+    style H fill:#1E2761,color:#CADCFC
 ```
 
 **Critical rule in the command file:** "Do NOT clone the repo separately — the script clones internally." This prevents a double-clone bug.

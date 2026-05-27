@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="948" viewBox="0 0 800 948">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#8e8e93"/>
+    </marker>
+  </defs>
+  <rect width="800" height="948" fill="#fafafa" rx="12" stroke="#e5e5ea" stroke-width="1"/>
+  <style>
+    .g-title { font: 700 14px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; fill:#1d1d1f; }
+    .g-col   { font: 700 10px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; fill:#8e8e93; letter-spacing:.6px; }
+    .g-sep   { fill: none; stroke: #e5e5ea; stroke-width: 1; stroke-dasharray: 4 4; }
+    .g-lbl   { font: 600 10px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; text-anchor:middle; dominant-baseline:middle; }
+    .g-iso   { font: 500 9px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif; text-anchor:middle; dominant-baseline:middle; fill:#6e6e73; }
+    .g-edge  { stroke:#c7c7cc; stroke-width:1.5; fill:none; marker-end:url(#arr); }
+  </style>
+  <text x="24" y="28" class="g-title">Module Dependency Graph</text>
+  <text x="133" y="46" class="g-col" text-anchor="middle">SOURCES (8)</text>
+  <text x="667" y="46" class="g-col" text-anchor="middle">TARGETS (10)</text>
+  <line x1="267" y1="52" x2="267" y2="500" class="g-sep"/>
+  <line x1="533" y1="52" x2="533" y2="500" class="g-sep"/>
+  <path d="M 173,123 C 374,123 374,165 574,165" class="g-edge"/>
+  <path d="M 173,123 C 374,123 374,207 574,207" class="g-edge"/>
+  <path d="M 173,123 C 374,123 374,249 574,249" class="g-edge"/>
+  <path d="M 173,165 C 374,165 374,291 574,291" class="g-edge"/>
+  <path d="M 173,165 C 397,165 397,333 621,333" class="g-edge"/>
+  <path d="M 173,123 C 379,123 379,81 584,81" class="g-edge"/>
+  <path d="M 188,207 C 381,207 381,123 574,123" class="g-edge"/>
+  <path d="M 185,249 C 380,249 380,123 574,123" class="g-edge"/>
+  <path d="M 182,291 C 378,291 378,375 574,375" class="g-edge"/>
+  <path d="M 182,333 C 383,333 383,81 584,81" class="g-edge"/>
+  <path d="M 188,375 C 402,375 402,417 616,417" class="g-edge"/>
+  <path d="M 202,417 C 412,417 412,459 621,459" class="g-edge"/>
+  <rect x="93" y="110" width="80" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="124" fill="#1d1d1f" class="g-lbl">Program</text>
+  <rect x="93" y="152" width="80" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="166" fill="#1d1d1f" class="g-lbl">Index</text>
+  <rect x="78" y="194" width="111" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="208" fill="#1d1d1f" class="g-lbl">MessageHelper</text>
+  <rect x="81" y="236" width="104" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="250" fill="#1d1d1f" class="g-lbl">MessageQueue</text>
+  <rect x="84" y="278" width="97" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="292" fill="#1d1d1f" class="g-lbl">Global_asax</text>
+  <rect x="84" y="320" width="97" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="334" fill="#1d1d1f" class="g-lbl">SignUp_aspx</text>
+  <rect x="78" y="362" width="111" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="376" fill="#1d1d1f" class="g-lbl">jquery_1_10_2</text>
+  <rect x="64" y="404" width="139" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="133" y="418" fill="#1d1d1f" class="g-lbl">jquery_1_10_2_min</text>
+  <rect x="590" y="68" width="153" height="26" rx="6" fill="#af52de" stroke="#7a22b8" stroke-width="1.5"/>
+  <text x="667" y="82" fill="#ffffff" class="g-lbl">ProductLaunch.Model</text>
+  <rect x="580" y="110" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="124" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
+  <rect x="580" y="152" width="174" height="26" rx="6" fill="#0071e3" stroke="#005bb5" stroke-width="1.5"/>
+  <text x="667" y="166" fill="#ffffff" class="g-lbl">ProductLaunch.Message…</text>
+  <rect x="580" y="194" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="208" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
+  <rect x="580" y="236" width="174" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="250" fill="#1d1d1f" class="g-lbl">ProductLaunch.Messagi…</text>
+  <rect x="580" y="278" width="174" height="26" rx="6" fill="#0071e3" stroke="#005bb5" stroke-width="1.5"/>
+  <text x="667" y="292" fill="#ffffff" class="g-lbl">ProductLaunch.Message…</text>
+  <rect x="627" y="320" width="80" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="334" fill="#1d1d1f" class="g-lbl">Nest</text>
+  <rect x="580" y="362" width="174" height="26" rx="6" fill="#af52de" stroke="#7a22b8" stroke-width="1.5"/>
+  <text x="667" y="376" fill="#ffffff" class="g-lbl">ProductLaunch.Model.I…</text>
+  <rect x="622" y="404" width="90" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="418" fill="#1d1d1f" class="g-lbl"> + prev + </text>
+  <rect x="627" y="446" width="80" height="26" rx="6" fill="#f0f0f5" stroke="#c7c7cc" stroke-width="1.5"/>
+  <text x="667" y="460" fill="#1d1d1f" class="g-lbl">+l+</text>
+  <text x="24" y="514" class="g-col">ALL MODULES (55)</text>
+  <rect x="30" y="513" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="525" fill="#6e6e73" class="g-iso">Env</text>
+  <rect x="178" y="513" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="525" fill="#6e6e73" class="g-iso">AssemblyInfo</text>
+  <rect x="326" y="513" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="525" fill="#6e6e73" class="g-iso">Country</text>
+  <rect x="474" y="513" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="525" fill="#6e6e73" class="g-iso">Prospect</text>
+  <rect x="622" y="513" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="525" fill="#6e6e73" class="g-iso">Role</text>
+  <rect x="30" y="547" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="559" fill="#6e6e73" class="g-iso">Config</text>
+  <rect x="178" y="547" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="559" fill="#6e6e73" class="g-iso">Message</text>
+  <rect x="326" y="547" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="559" fill="#6e6e73" class="g-iso">ProspectSignedUpEvent</text>
+  <rect x="474" y="547" width="130" height="22" rx="5" fill="#ff9f0a" stroke="#c47900" stroke-width="1"/>
+  <text x="539" y="559" fill="#ffffff" class="g-iso">ProductLaunchContext</text>
+  <rect x="622" y="547" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="559" fill="#6e6e73" class="g-iso">StaticDataInitializer</text>
+  <rect x="30" y="581" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="593" fill="#6e6e73" class="g-iso">About_aspx</text>
+  <rect x="178" y="581" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="593" fill="#6e6e73" class="g-iso">About_aspx_designer</text>
+  <rect x="326" y="581" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="593" fill="#6e6e73" class="g-iso">Contact_aspx</text>
+  <rect x="474" y="581" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="593" fill="#6e6e73" class="g-iso">Contact_aspx_designer</text>
+  <rect x="622" y="581" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="593" fill="#6e6e73" class="g-iso">Default_aspx</text>
+  <rect x="30" y="615" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="627" fill="#6e6e73" class="g-iso">Default_aspx_designer</text>
+  <rect x="178" y="615" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="627" fill="#6e6e73" class="g-iso">SignUp_aspx_designer</text>
+  <rect x="326" y="615" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="627" fill="#6e6e73" class="g-iso">Site_Master</text>
+  <rect x="474" y="615" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="627" fill="#6e6e73" class="g-iso">Site_Master_designer</text>
+  <rect x="622" y="615" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="627" fill="#6e6e73" class="g-iso">Site_Mobile_Master</text>
+  <rect x="30" y="649" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="661" fill="#6e6e73" class="g-iso">Site_Mobile_Master_de…</text>
+  <rect x="178" y="649" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="661" fill="#6e6e73" class="g-iso">ThankYou_aspx</text>
+  <rect x="326" y="649" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="661" fill="#6e6e73" class="g-iso">ThankYou_aspx_designer</text>
+  <rect x="474" y="649" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="661" fill="#6e6e73" class="g-iso">ViewSwitcher_ascx</text>
+  <rect x="622" y="649" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="661" fill="#6e6e73" class="g-iso">ViewSwitcher_ascx_des…</text>
+  <rect x="30" y="683" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="695" fill="#6e6e73" class="g-iso">BundleConfig</text>
+  <rect x="178" y="683" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="695" fill="#6e6e73" class="g-iso">RouteConfig</text>
+  <rect x="326" y="683" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="695" fill="#6e6e73" class="g-iso">bootstrap</text>
+  <rect x="474" y="683" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="695" fill="#6e6e73" class="g-iso">bootstrap_min</text>
+  <rect x="622" y="683" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="695" fill="#6e6e73" class="g-iso">jquery_1_10_2_intelli…</text>
+  <rect x="30" y="717" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="729" fill="#6e6e73" class="g-iso">modernizr_2_6_2</text>
+  <rect x="178" y="717" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="729" fill="#6e6e73" class="g-iso">respond</text>
+  <rect x="326" y="717" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="729" fill="#6e6e73" class="g-iso">respond_min</text>
+  <rect x="474" y="717" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="729" fill="#6e6e73" class="g-iso">_references</text>
+  <rect x="622" y="717" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="729" fill="#6e6e73" class="g-iso">DetailsView</text>
+  <rect x="30" y="751" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="763" fill="#6e6e73" class="g-iso">Focus</text>
+  <rect x="178" y="751" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="763" fill="#6e6e73" class="g-iso">GridView</text>
+  <rect x="326" y="751" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="763" fill="#6e6e73" class="g-iso">Menu</text>
+  <rect x="474" y="751" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="763" fill="#6e6e73" class="g-iso">MenuStandards</text>
+  <rect x="622" y="751" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="763" fill="#6e6e73" class="g-iso">SmartNav</text>
+  <rect x="30" y="785" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="797" fill="#6e6e73" class="g-iso">TreeView</text>
+  <rect x="178" y="785" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="797" fill="#6e6e73" class="g-iso">WebForms</text>
+  <rect x="326" y="785" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="797" fill="#6e6e73" class="g-iso">WebParts</text>
+  <rect x="474" y="785" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="797" fill="#6e6e73" class="g-iso">WebUIValidation</text>
+  <rect x="622" y="785" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="797" fill="#6e6e73" class="g-iso">MicrosoftAjax</text>
+  <rect x="30" y="819" width="130" height="22" rx="5" fill="#30d158" stroke="#1a8c3a" stroke-width="1"/>
+  <text x="95" y="831" fill="#ffffff" class="g-iso">MicrosoftAjaxApplicat…</text>
+  <rect x="178" y="819" width="130" height="22" rx="5" fill="#af52de" stroke="#7a22b8" stroke-width="1"/>
+  <text x="243" y="831" fill="#ffffff" class="g-iso">MicrosoftAjaxComponen…</text>
+  <rect x="326" y="819" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="831" fill="#6e6e73" class="g-iso">MicrosoftAjaxCore</text>
+  <rect x="474" y="819" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="831" fill="#6e6e73" class="g-iso">MicrosoftAjaxGlobaliz…</text>
+  <rect x="622" y="819" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="687" y="831" fill="#6e6e73" class="g-iso">MicrosoftAjaxHistory</text>
+  <rect x="30" y="853" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="95" y="865" fill="#6e6e73" class="g-iso">MicrosoftAjaxNetwork</text>
+  <rect x="178" y="853" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="243" y="865" fill="#6e6e73" class="g-iso">MicrosoftAjaxSerializ…</text>
+  <rect x="326" y="853" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="391" y="865" fill="#6e6e73" class="g-iso">MicrosoftAjaxTimer</text>
+  <rect x="474" y="853" width="130" height="22" rx="5" fill="#ffffff" stroke="#d1d1d6" stroke-width="1"/>
+  <text x="539" y="865" fill="#6e6e73" class="g-iso">MicrosoftAjaxWebForms</text>
+  <rect x="622" y="853" width="130" height="22" rx="5" fill="#30d158" stroke="#1a8c3a" stroke-width="1"/>
+  <text x="687" y="865" fill="#ffffff" class="g-iso">MicrosoftAjaxWebServi…</text>
+</svg>

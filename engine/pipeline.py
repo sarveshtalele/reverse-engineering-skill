@@ -55,6 +55,7 @@ from engine.ai_analysis import (
     ai_executive_summary,
     ai_modernization_roadmap,
     ai_business_logic_analysis,
+    ai_all_sections_claude,
 )
 from engine.generators.sdd       import generate_sdd
 from engine.generators.dashboard import generate_html_dashboard
@@ -107,19 +108,17 @@ def repo_name_from_url(url):
     return re.sub(r'[^\w\-]', '_', name)
 
 
-def run_pipeline(repo_url):
+def run_pipeline(repo_url, mode="heuristic"):
     """Execute the full reverse engineering pipeline for *repo_url*.
 
-    Clones the repository, analyses the source code with pure static
-    heuristics (no API keys required), generates five output files
-    (SDD JSON, HTML dashboard, Markdown report, quality evaluation,
+    Clones the repository, analyses the source code, generates five output
+    files (SDD JSON, HTML dashboard, Markdown report, quality evaluation,
     manifest), and prints a concise progress summary to stdout.
-
-    The temporary clone directory is deleted in the ``finally`` block even
-    if an exception occurs during analysis.
 
     Args:
         repo_url (str): GitHub repository URL to analyse.
+        mode (str): ``"heuristic"`` (default) or ``"ai"`` (requires
+            ``ANTHROPIC_API_KEY`` env var and the ``anthropic`` Python SDK).
 
     Returns:
         None
@@ -127,8 +126,7 @@ def run_pipeline(repo_url):
     Side effects:
         - Creates ``outputs/{repo_name}/`` with five files.
         - Prints stage progress and final file paths to stdout.
-        - All analysis content (AI summary, roadmap, business logic) is
-          written to the report and dashboard files — not to stdout.
+        - All analysis content is written to the report and dashboard files.
     """
     print(f"\n{'='*60}")
     print(f"  Reverse Engineer Skill  (API-key-free edition)")
@@ -234,15 +232,28 @@ def run_pipeline(repo_url):
         )
 
         # ----------------------------------------------------------------
-        # 6. Static heuristic analysis (no API keys required)
+        # 6. Analysis — heuristic or Claude AI
         # ----------------------------------------------------------------
-        print("[6/8] Running static heuristic analysis...")
+        if mode == "ai":
+            print("[6/8] Running AI analysis via Claude API...")
+            ai_result = ai_all_sections_claude(
+                parsed, report, endpoints, db_schema, tech_stack, repo_name
+            )
+            if ai_result:
+                summary, modernization, business_logic = ai_result
+                print("      [ok] Claude API analysis complete")
+            else:
+                print("      [!] Claude API call failed — falling back to heuristic analysis")
+                mode = "heuristic"
 
-        summary         = ai_executive_summary(parsed, report, repo_name)
-        modernization   = ai_modernization_roadmap(parsed, report, repo_name, tech_stack)
-        business_logic  = ai_business_logic_analysis(
-            parsed, endpoints, db_schema, report, repo_name
-        )
+        if mode != "ai":
+            print("[6/8] Running static heuristic analysis...")
+            summary        = ai_executive_summary(parsed, report, repo_name)
+            modernization  = ai_modernization_roadmap(parsed, report, repo_name, tech_stack)
+            business_logic = ai_business_logic_analysis(
+                parsed, endpoints, db_schema, report, repo_name
+            )
+
         platform_str    = detect_platform(parsed)
         arch_layers     = detect_architecture_layers(parsed)
         data_boundaries = suggest_microservice_data_boundaries(db_schema, modernization)

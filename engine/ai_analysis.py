@@ -1,26 +1,146 @@
 """
-AI Analysis  (API-Key-Free Edition)
-====================================
-Produces three structured artefacts using **pure static heuristics** —
-no LLM API calls, no API keys, no internet access required.
+AI Analysis
+============
+Two analysis paths:
 
-All analysis is derived entirely from the parsed codebase:
-  - Language distribution, class/method names, import statements
-  - ORM entity models, relationships, and field definitions
-  - Detected API endpoints, HTTP methods, and route patterns
-  - File naming conventions and directory structure
+1. **Heuristic mode** (default, no API key required) — pure static analysis
+   using class/method names, ORM entity detection, import analysis, and
+   API route extraction.
 
-The three functions mirror the same return schema as the original
-AI-powered versions so the rest of the pipeline is unchanged.
+2. **AI mode** (requires ``ANTHROPIC_API_KEY``) — calls Claude Sonnet via
+   the Anthropic Python SDK.  Falls back to heuristic if SDK is not
+   installed or the key is missing.
 
-When running inside **Claude Code** or **GitHub Copilot**, the AI
-assistant itself can read the generated ``*_sdd.json`` and
-``*_report.md`` files and provide AI-quality narrative in the chat
-without requiring any API key in the Python environment.
+All functions return the same dict schema regardless of mode so the rest
+of the pipeline is unchanged.
 """
 
 import re
+import os
+import json
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Claude API helper
+# ---------------------------------------------------------------------------
+
+def _call_claude(prompt: str, model: str = "claude-sonnet-4-6") -> str:
+    """Call Claude API and return the text response.  Returns empty string on failure."""
+    try:
+        import anthropic  # type: ignore
+    except ImportError:
+        return ""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return ""
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model=model,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return msg.content[0].text if msg.content else ""
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [!] Claude API error: {exc}")
+        return ""
+
+
+def ai_all_sections_claude(parsed, report, endpoints, db_schema, tech_stack, repo_name):
+    """Call Claude once for all three analysis sections.  Returns a tuple
+    (summary_dict, modernization_dict, business_logic_dict) or None on failure.
+    """
+    primary = (
+        max(report["languages"], key=report["languages"].get)
+        if report["languages"] else "unknown"
+    )
+    entity_names = [e.get("name", "") for e in db_schema.get("entities", [])[:20]]
+    sample_classes = list(dict.fromkeys(
+        c for r in parsed[:40] for c in r.get("classes", [])[:3]
+    ))[:30]
+    ep_paths = list(dict.fromkeys(ep.get("path", "") for ep in endpoints[:30]))
+
+    prompt = f"""You are a senior software architect performing a reverse engineering analysis.
+Analyse the repository "{repo_name}" based on the static analysis data below and return a **single JSON object** with three top-level keys: "executive_summary", "modernization_roadmap", and "business_logic".
+
+## Static Analysis Data
+- Primary language: {primary}
+- Tech stack: {', '.join(tech_stack) or 'unknown'}
+- Files: {report['total_files']} | Classes: {report['total_classes']} | Methods: {report['total_methods']}
+- API endpoints ({len(endpoints)}): {', '.join(ep_paths[:20]) or 'none detected'}
+- Data entities ({len(entity_names)}): {', '.join(entity_names[:20]) or 'none detected'}
+- Sample classes: {', '.join(sample_classes[:25]) or 'none'}
+
+## Required JSON Schema
+
+{{
+  "executive_summary": {{
+    "purpose": "<2-3 sentence description of what this system does and for whom>",
+    "architecture_pattern": "<e.g. MVC Monolith / Layered N-Tier / Microservices / CQRS>",
+    "tech_debt_concerns": ["<concern 1>", "<concern 2>", "<concern 3>"],
+    "modernization_priority": "<HIGH|MEDIUM|LOW>",
+    "priority_reasoning": "<1-2 sentence rationale>"
+  }},
+  "modernization_roadmap": {{
+    "target_stack": ["<tech 1>", "<tech 2>", "..."],
+    "phases": [
+      {{"phase": 1, "title": "...", "duration": "...", "risk": "LOW|MEDIUM|HIGH", "tasks": ["..."]}},
+      {{"phase": 2, "title": "...", "duration": "...", "risk": "...", "tasks": ["..."]}},
+      {{"phase": 3, "title": "...", "duration": "...", "risk": "...", "tasks": ["..."]}},
+      {{"phase": 4, "title": "...", "duration": "...", "risk": "...", "tasks": ["..."]}}
+    ],
+    "microservices_boundaries": ["<service 1>", "<service 2>", "..."],
+    "estimated_total_effort": "<X-Y months>",
+    "risk_factors": ["<risk 1>", "<risk 2>", "<risk 3>"]
+  }},
+  "business_logic": {{
+    "business_domain": "<domain label e.g. E-Commerce / Online Retail>",
+    "what_it_does": "<3-4 paragraph plain-English explanation for non-technical stakeholders>",
+    "core_workflows": [
+      {{"name": "...", "description": "...", "steps": ["..."], "endpoints": ["..."]}}
+    ],
+    "user_roles": ["<role 1>", "<role 2>"],
+    "key_business_rules": ["<rule 1>", "<rule 2>", "..."],
+    "data_entities_explained": [
+      {{"entity": "...", "business_meaning": "...", "key_operations": ["..."]}}
+    ],
+    "integrations": ["<integration 1>", "..."]
+  }}
+}}
+
+Return ONLY the JSON object, no markdown fences, no explanation."""
+
+    raw = _call_claude(prompt)
+    if not raw:
+        return None
+    # Strip potential markdown fences
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```[a-z]*\n?", "", raw)
+        raw = re.sub(r"\n?```$", "", raw.strip())
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # Attempt to extract JSON block
+        m = re.search(r'\{[\s\S]*\}', raw)
+        if not m:
+            return None
+        try:
+            data = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            return None
+
+    summary = data.get("executive_summary", {})
+    modernization = data.get("modernization_roadmap", {})
+    biz = data.get("business_logic", {})
+
+    # Normalise schema to match what the pipeline expects
+    if "summary" not in summary:
+        pass  # already correct schema
+    biz["fallback_used"] = False
+
+    return summary, modernization, biz
 
 
 # ---------------------------------------------------------------------------
