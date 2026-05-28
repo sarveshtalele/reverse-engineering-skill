@@ -1,0 +1,6 @@
+# Reverse Engineer Skill — Claude Code Edition
+# Core engine has ZERO required dependencies (Python stdlib + git only).
+# The anthropic package is OPTIONAL — only needed for --ai mode.
+
+# Optional: enable AI-powered analysis (--ai flag)
+# anthropic>=0.40.0

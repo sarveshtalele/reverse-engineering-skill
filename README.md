@@ -1,17 +1,26 @@
-# Reverse Engineer Skill
+# Reverse Engineer Skill v3.0
 
-> Clone any GitHub repository → complete static analysis → five professional output files in one command.
+> One command. Any public GitHub repository. Seven professional output files.
 
-| Output | Audience | Format | Typical Size |
-|--------|----------|--------|--------------|
-| `{repo}_sdd.json` | Engineering tools, CI pipelines | SDD Framework JSON (13 sections) | 100–700 KB |
-| `{repo}_dashboard.html` | Stakeholders, PMs, leadership | Self-contained Apple-theme HTML (6 sections) | 60–120 KB |
-| `{repo}_report.md` | Architects, Confluence, Notion | GitHub-compatible Markdown (11 sections) | 15–40 KB |
-| `{repo}_evaluation.md` | QA, developers | Automated 100-pt quality score | ~8 KB |
-| `manifest.json` | Automation, CI | Run metrics and file index | ~1 KB |
+Give it a GitHub URL and it clones the repo, runs a 9-stage static analysis pipeline, and writes everything to `outputs/{repo}/` — without executing a single line of the analysed code.
 
-**Supported languages:** Python · Java · C# / .NET · JavaScript · TypeScript (+ JSX/TSX)  
-**AI sections** (executive summary, modernization roadmap) use `claude-sonnet-4-6` when `ANTHROPIC_API_KEY` is set — the tool produces full output without it.
+---
+
+## Output Files
+
+| File | Audience | Format |
+|------|----------|--------|
+| `{repo}_sdd.json` | Engineering tools, CI | 14-section System Design Document (JSON) |
+| `{repo}_dashboard.html` | Stakeholders, PMs, leadership | Self-contained Apple-theme HTML (6 sections) |
+| `{repo}_report.md` | Architects, Confluence, Notion | GitHub-compatible Markdown (12 sections) |
+| `{repo}_block_diagram.svg` | All audiences | Architecture layer diagram (SVG, embeddable) |
+| `{repo}_dependency_graph.svg` | Engineers | Module dependency graph (SVG, embeddable) |
+| `{repo}_evaluation.md` | QA, developers | Automated 100-point quality score |
+| `manifest.json` | Automation, CI | Run metrics and file index |
+
+**Supported languages:** Python · Java · C# / .NET · JavaScript · TypeScript (+ JSX/TSX)
+
+**AI sections** use `claude-sonnet-4-6` when `ANTHROPIC_API_KEY` is set. Full output — including all 7 files — is produced without it (heuristic mode, $0.00).
 
 ---
 
@@ -19,47 +28,54 @@
 
 1. [Prerequisites](#1-prerequisites)
 2. [Installation](#2-installation)
-3. [Run via CLI](#3-run-via-cli-fastest)
-4. [Run via Claude Code](#4-run-via-claude-code)
-5. [Run via GitHub Copilot Chat](#5-run-via-github-copilot-chat)
-6. [Output Files](#6-output-files)
-7. [Verify Output Quality](#7-verify-output-quality)
-8. [Enable AI Sections](#8-enable-ai-sections)
-9. [Project Structure](#9-project-structure)
-10. [Engine Module Reference](#10-engine-module-reference)
-11. [Improving the Skill](#11-improving-the-skill)
-12. [Token Usage](#12-token-usage)
+3. [Usage Mode 1 — CLI](#3-usage-mode-1--cli)
+4. [Usage Mode 2 — Claude Code](#4-usage-mode-2--claude-code)
+5. [Usage Mode 3 — GitHub Copilot Chat](#5-usage-mode-3--github-copilot-chat)
+6. [Usage Mode 4 — Agent SDK / Python API](#6-usage-mode-4--agent-sdk--python-api)
+7. [CLI Flags Reference](#7-cli-flags-reference)
+8. [Output Files In Detail](#8-output-files-in-detail)
+9. [Enable AI Mode](#9-enable-ai-mode)
+10. [Layer-Balanced File Cap](#10-layer-balanced-file-cap)
+11. [Project Structure](#11-project-structure)
+12. [Engine Module Reference](#12-engine-module-reference)
+13. [Evaluation Scoring](#13-evaluation-scoring)
+14. [Adding a New Language](#14-adding-a-new-language)
+15. [Token Cost](#15-token-cost)
 
 ---
 
 ## 1. Prerequisites
 
-```powershell
-python --version    # need 3.8+
-git --version       # need 2.x+
-```
+| Tool | Minimum | Check |
+|------|---------|-------|
+| Python | 3.8+ | `python --version` |
+| Git | any | `git --version` |
 
-Download: [Python](https://www.python.org/downloads/) · [Git](https://git-scm.com/downloads)
+Downloads: [Python](https://www.python.org/downloads/) · [Git](https://git-scm.com/downloads)
 
 ---
 
 ## 2. Installation
 
-```powershell
-cd C:\path\to\reverse-eng-proj
-pip install -r requirements.txt
+```bash
+# Clone the project
+git clone https://github.com/YOUR_USERNAME/reverse-eng-proj.git
+cd reverse-eng-proj
+
+# Install the optional AI dependency (skip if using heuristic mode only)
+pip install anthropic
 ```
 
-`requirements.txt` installs one package:
-- `anthropic>=0.40.0` — Anthropic Python SDK (AI sections only; heuristic fallbacks work without it)
+`requirements.txt` contains one package: `anthropic>=0.40.0`  
+The engine itself has zero pip dependencies — only Python stdlib + git are required.
 
 ---
 
-## 3. Run via CLI (Fastest)
+## 3. Usage Mode 1 — CLI
 
-### Step by step
+The fastest path. Works on any OS.
 
-**Step 1** — Open a terminal in the project folder:
+### Step 1 — Open a terminal in the project folder
 
 ```powershell
 # Windows PowerShell
@@ -71,23 +87,48 @@ cd C:\Users\YourName\Downloads\reverse-eng-proj
 cd ~/Downloads/reverse-eng-proj
 ```
 
-**Step 2** — *(Optional)* Set your Anthropic API key to unlock AI-powered sections:
+### Step 2 — (Optional) Set your API key for AI sections
 
 ```powershell
-$env:ANTHROPIC_API_KEY = "sk-ant-api03-..."   # PowerShell (current session)
+$env:ANTHROPIC_API_KEY = "sk-ant-..."   # PowerShell — current session
 ```
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-api03-..."    # bash / macOS
+export ANTHROPIC_API_KEY="sk-ant-..."   # bash/zsh — current session
 ```
 
-**Step 3** — Run against any public GitHub repo:
+### Step 3 — Run
 
 ```bash
-python reverse_engineer_skill.py https://github.com/nopSolutions/nopCommerce
+# Heuristic mode (no API key needed)
+python reverse_engineer_skill.py https://github.com/django/django --heuristic
+
+# AI mode (requires ANTHROPIC_API_KEY)
+python reverse_engineer_skill.py https://github.com/django/django --ai
+
+# Interactive mode (prompts you to choose)
+python reverse_engineer_skill.py https://github.com/django/django
 ```
 
-**Expected output** (nopCommerce example):
+Or use the platform scripts which auto-detect your Python binary:
+
+```bash
+# macOS / Linux
+./run.sh https://github.com/django/django --heuristic
+
+# Windows
+run.bat https://github.com/django/django --heuristic
+```
+
+### Step 4 — Open the dashboard
+
+```powershell
+start outputs\django\django_dashboard.html          # Windows
+open  outputs/django/django_dashboard.html          # macOS
+xdg-open outputs/django/django_dashboard.html       # Linux
+```
+
+### Expected console output (nopCommerce example)
 
 ```
 ============================================================
@@ -95,161 +136,134 @@ python reverse_engineer_skill.py https://github.com/nopSolutions/nopCommerce
   Repository: https://github.com/nopSolutions/nopCommerce
 ============================================================
 
-[1/8] Cloning repository...
-  Cloning https://github.com/nopSolutions/nopCommerce -> C:\Temp\rev_eng_abc\nopCommerce
-  [ok] Clone complete
+[1/9] Cloning repository...
+      [ok] Clone complete
 
-[2/8] Loading source files...
-      Found 3114 source files
+[2/9] Loading source files...
+      Found 3,114 source files
 
-[3/8] Parsing code structures...
-      Capped to 292 files (layer-balanced: ctrl/svc/repo/domain/model)
+[3/9] Applying layer-balanced file cap...
+      Capped to 292 files (ctrl=75 svc=75 repo=40 domain=60 model=30 other=12)
+
+[4/9] Parsing code structures...
       Parsed 292 / 292 files
 
-[4/8] Generating metrics report...
-
-[5/8] Extracting APIs and detecting dead code...
+[5/9] Extracting APIs and detecting dead code...
       284 API endpoints | 241 dead files | 7 tech stack items
-      51 data entities | 0 relationships detected
+      51 data entities | 7 microservice data boundaries
 
-[6/8] Running AI analysis (Claude claude-sonnet-4-6)...
+[6/9] Running AI analysis...
       Architecture: Monolithic | Priority: HIGH
-      Platform: .NET / Windows Server | Layers: 6 | Data boundaries: 7
 
-[7/8] Generating 3 output files...
-      [ok] SDD JSON       -> outputs\nopCommerce\nopCommerce_sdd.json
-      [ok] HTML Dashboard -> outputs\nopCommerce\nopCommerce_dashboard.html
-      [ok] MD Report      -> outputs\nopCommerce\nopCommerce_report.md
+[7/9] Generating 7 output files...
+      [ok] SDD JSON          -> outputs\nopCommerce\nopCommerce_sdd.json       (415 KB)
+      [ok] HTML Dashboard    -> outputs\nopCommerce\nopCommerce_dashboard.html  (96 KB)
+      [ok] MD Report         -> outputs\nopCommerce\nopCommerce_report.md       (34 KB)
+      [ok] Block Diagram     -> outputs\nopCommerce\nopCommerce_block_diagram.svg (18 KB)
+      [ok] Dependency Graph  -> outputs\nopCommerce\nopCommerce_dependency_graph.svg (22 KB)
 
-[8/8] Evaluating pipeline output quality...
-      [ok] Evaluation Report -> outputs\nopCommerce\nopCommerce_evaluation.md
+[8/9] Evaluating pipeline output quality...
+      [ok] Evaluation        -> outputs\nopCommerce\nopCommerce_evaluation.md    (8 KB)
 
 [9/9] Complete!
-
-  Output files:
-     * outputs\nopCommerce\nopCommerce_sdd.json          (415 KB)
-     * outputs\nopCommerce\nopCommerce_dashboard.html    (96 KB)
-     * outputs\nopCommerce\nopCommerce_report.md         (34 KB)
-     * outputs\nopCommerce\nopCommerce_evaluation.md     (8 KB)
-     * outputs\nopCommerce\manifest.json                 (1 KB)
 
   Analysis summary:
      Files analyzed    : 292
      Classes found     : 284
-     Methods found     : 2301
+     Methods found     : 2,301
      API endpoints     : 284
      Dead code files   : 241
      Primary language  : dotnet
      Tech stack        : .NET Project File, ASP.NET Core, Docker
 
   Quality evaluation:
-     Evaluation Score  : 78/100 pts  [MEDIUM confidence]
-       1. Parsing Quality                        18/20 pts
-       2. API Endpoint Detection                 18/20 pts
-       3. Dead Code Analysis                     12/15 pts
-       4. Entity / Data Architecture             10/15 pts
-       5. Dependency Graph                       15/15 pts
-       6. AI Analysis Quality                     5/15 pts  ← no API key
-```
-
-**Step 4** — Open the dashboard:
-
-```powershell
-start outputs\nopCommerce\nopCommerce_dashboard.html    # Windows
-open  outputs/nopCommerce/nopCommerce_dashboard.html    # macOS
+     Score             : 78/100 pts  [MEDIUM confidence]
 ```
 
 ---
 
-## 4. Run via Claude Code
+## 4. Usage Mode 2 — Claude Code
 
-### Step by step
+Claude Code reads `.claude/skills/reverse-engineer/SKILL.md` and runs the engine for you. **Claude Code itself acts as the AI engine** — no Anthropic API key required.
 
-**Step 1** — Install Claude Code (if not already installed):
+### Step 1 — Install Claude Code
 
 ```bash
 npm install -g @anthropic-ai/claude-code
+claude --version
 ```
 
-**Step 2** — Open Claude Code in the project directory:
+### Step 2 — Open Claude Code from the project folder
 
 ```bash
-cd C:\path\to\reverse-eng-proj
+cd reverse-eng-proj
 claude
 ```
 
-**Step 3** — Type the slash command:
+### Step 3 — Run the slash command
 
 ```
 /reverse-engineer https://github.com/nopSolutions/nopCommerce
 ```
 
-**What happens internally:**
+Claude Code will:
+1. Run `python reverse_engineer_skill.py <url> --heuristic`
+2. Read the generated `_sdd.json`
+3. Generate executive summary, business logic analysis, and modernization roadmap in the chat
+4. **Automatically write the AI analysis back into `_report.md`** (no confirmation needed)
 
-```mermaid
-flowchart TD
-    A["/reverse-engineer\nhttps://github.com/nopSolutions/nopCommerce"]
-    A --> B["Claude reads\n.claude/commands/reverse-engineer.md"]
-    B --> C["python reverse_engineer_skill.py\nhttps://github.com/nopSolutions/nopCommerce"]
-    C --> D["Clones to temp dir\nauto-cleaned after run"]
-    C --> E["Layer-balanced\nfile selection ≤300"]
-    C --> F["Detects API endpoints,\nentities, dead code"]
-    D & E & F --> G["Generates outputs/nopCommerce/\n5 files written"]
-    G --> H["Summary + quality score\nreported in Claude Code chat"]
+### Global install (skill available in every project)
 
-    style A fill:#1E2761,color:#CADCFC
-    style C fill:#1D4ED8,color:#ffffff
-    style G fill:#10B981,color:#ffffff
-    style H fill:#1E2761,color:#CADCFC
+```bash
+# macOS / Linux
+mkdir -p ~/.claude/skills/reverse-engineer
+cp .claude/skills/reverse-engineer/SKILL.md ~/.claude/skills/reverse-engineer/SKILL.md
+
+# Windows PowerShell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\reverse-engineer"
+Copy-Item .claude\skills\reverse-engineer\SKILL.md "$env:USERPROFILE\.claude\skills\reverse-engineer\SKILL.md"
 ```
 
-> **Important:** The slash command runs `python reverse_engineer_skill.py` directly — it does **not** run `git clone` separately first. The script handles cloning internally. If you see Claude trying to clone manually, your command file may be out of date.
+After global install, `/reverse-engineer` works from any directory — you still need the `engine/` folder and `reverse_engineer_skill.py` in your working directory.
 
 ---
 
-## 5. Run via GitHub Copilot Chat
+## 5. Usage Mode 3 — GitHub Copilot Chat
+
+VS Code with GitHub Copilot Chat uses `.github/prompts/reverse-engineer.prompt.md`. **Copilot acts as the AI engine** — no Anthropic API key required.
 
 ### Prerequisites
 
-- VS Code with **GitHub Copilot** + **GitHub Copilot Chat** extensions installed and signed in
+- VS Code 1.90+ with GitHub Copilot + GitHub Copilot Chat extensions
 - This project folder open as the VS Code workspace
 
-### Option A — Custom Prompt (Recommended)
+### Step 1 — Open VS Code
 
-**Step 1** — Open VS Code in this project:
 ```bash
 code C:\path\to\reverse-eng-proj
 ```
 
-**Step 2** — Open Copilot Chat: `Ctrl+Alt+I` (Windows) / `Cmd+Alt+I` (macOS)
+### Step 2 — Open Copilot Chat
 
-**Step 3** — Attach the custom prompt:
-- Click the **paperclip / attach** icon in the chat input
-- Select **Prompt…**
-- Choose **"Reverse Engineer a GitHub Repo"**
+`Ctrl+Alt+I` (Windows) / `Cmd+Alt+I` (macOS)
 
-**Step 4** — Paste the GitHub URL and press Enter:
-```
-https://github.com/nopSolutions/nopCommerce
-```
+### Step 3 — Attach the prompt file
 
-Copilot will open a terminal, execute `reverse_engineer_skill.py`, and report results in the chat.
+1. Click the **paperclip / attach** icon in the chat input
+2. Select **Prompt…**
+3. Choose **"reverse-engineer"**
 
----
-
-### Option B — Natural Language
-
-Copilot auto-loads `.github/copilot-instructions.md` when this workspace is open. Just type:
+### Step 4 — Enter a GitHub URL and send
 
 ```
-Analyze https://github.com/nopSolutions/nopCommerce and generate the SDD, dashboard, and report.
+https://github.com/spring-projects/spring-petclinic
 ```
 
----
+Copilot opens a terminal, runs `reverse_engineer_skill.py --heuristic`, reads the SDD JSON, and outputs AI analysis in the chat. It then writes the AI content directly into `_report.md`.
 
-### Option C — Troubleshooting (Prompt Not Showing)
+### If the prompt file doesn't appear in the picker
 
-Check `.vscode/settings.json` contains:
+Add to `.vscode/settings.json`:
 
 ```json
 {
@@ -258,228 +272,281 @@ Check `.vscode/settings.json` contains:
 }
 ```
 
-Then reload VS Code: `Ctrl+Shift+P` → **Reload Window**.
+Then reload: `Ctrl+Shift+P` → **Reload Window**.
 
 ---
 
-## 6. Output Files
+## 6. Usage Mode 4 — Agent SDK / Python API
 
-All outputs land in `./outputs/{repo-name}/` — five files always.
+Import `ReverseEngineerAgent` directly in your Python scripts or CI pipelines.
+
+```python
+from reverse_engineer_agent import ReverseEngineerAgent
+
+# Heuristic mode — no API key required
+agent = ReverseEngineerAgent(mode="heuristic")
+result = agent.run("https://github.com/spring-projects/spring-petclinic")
+
+print(result["summary"]["architecture_pattern"])   # "Layered N-Tier MVC"
+print(result["metrics"]["endpoints"])              # 23
+print(result["output_files"]["dashboard"])         # outputs/spring-petclinic/...
+
+# AI mode — calls Claude API for narrative
+agent = ReverseEngineerAgent(mode="ai")
+result = agent.run("https://github.com/django/django")
+print(result["ai_narrative"])
+```
+
+Or as a CLI:
+
+```bash
+python reverse_engineer_agent.py https://github.com/owner/repo
+python reverse_engineer_agent.py https://github.com/owner/repo --ai
+```
+
+`ReverseEngineerAgent` is provided in the `03-agent-sdk-skill` package (see `skill-packages/`).
+
+---
+
+## 7. CLI Flags Reference
+
+```
+python reverse_engineer_skill.py <github-url> [flags]
+```
+
+| Flag | Effect |
+|------|--------|
+| _(no flag)_ | Interactive mode — prompts `[1] Heuristic / [2] AI` at startup |
+| `--heuristic` | Force heuristic mode — skips interactive prompt, no API key needed |
+| `--no-ai` | Alias for `--heuristic` |
+| `--ai` | Force AI mode — skips interactive prompt, requires `ANTHROPIC_API_KEY` + `anthropic` package |
+| `--help` / `-h` | Print usage and exit |
+
+**Auto-fallback:** If `--ai` is passed but `ANTHROPIC_API_KEY` is not set or `anthropic` is not installed, the script auto-falls back to heuristic mode with a warning.
+
+---
+
+## 8. Output Files In Detail
 
 ### `{repo}_sdd.json` — System Design Document
 
-JSON with 13 top-level sections:
+14-section JSON document:
 
-| Section | Contents |
-|---------|----------|
-| `sdd_metadata` | Version, timestamp, generator |
-| `project` | Name, URL, language, tech stack, platform, architecture layers |
-| `executive_summary` | Purpose, architecture pattern, tech debt, priority |
-| `codebase_metrics` | Files, classes, methods, endpoints, language breakdown |
-| `architecture` | Style, layers, components, Mermaid dependency graph |
-| `module_inventory` | Per-file list: classes, methods, routes (all parsed files) |
-| `api_catalog` | OpenAPI 3.0 spec + flat endpoint list |
-| `dependency_analysis` | Import map, top 10 most-connected modules |
-| `dead_code_analysis` | Unreferenced files and classes |
-| `data_architecture` | ORM entities, relationships, microservice data boundaries |
-| `modernization_roadmap` | Phased plan with effort estimates and risk levels |
-| `risk_assessment` | Risk items with severity and mitigation |
-| `tech_debt_inventory` | Specific debt categories with priority |
+| # | Section | Contents |
+|---|---------|----------|
+| 1 | `sdd_metadata` | Version, timestamp, generator |
+| 2 | `project` | Name, URL, language, tech stack, platform, architecture layers |
+| 3 | `executive_summary` | Purpose, architecture pattern, tech debt concerns, modernization priority |
+| 4 | `codebase_metrics` | Files, classes, methods, endpoints, language breakdown |
+| 5 | `architecture` | Style, layers, components |
+| 6 | `module_inventory` | Per-file list: classes, methods, routes |
+| 7 | `api_catalog` | OpenAPI 3.0 spec + flat endpoint list |
+| 8 | `dependency_analysis` | Import map, top 10 most-connected modules |
+| 9 | `dead_code_analysis` | Unreferenced files and classes |
+| 10 | `data_architecture` | ORM entities, relationships, microservice boundaries |
+| 11 | `business_logic` | Domain, workflows, block diagram data |
+| 12 | `modernization_roadmap` | 4-phase plan with effort estimates and risk levels |
+| 13 | `risk_assessment` | Risk items with severity and mitigation |
+| 14 | `tech_debt_inventory` | Debt categories with priority labels |
 
 ### `{repo}_dashboard.html` — Stakeholder Dashboard
 
-Open directly in any browser — no server required. Six sidebar sections:
+Open in any browser — no server required. Six sidebar sections:
 
-- **Overview** — metric cards with count-up animation, language bar chart, system summary, tech stack badges, most-connected-modules bar
-- **Architecture** — Mermaid dependency graph (light theme), architectural layer list
-- **API Endpoints** — live search/filter input, HTTP method colour badges, full endpoint table
-- **Dead Code** — SVG percentage ring showing % of dead files, unreferenced file/class lists
-- **Modernization** — vertical timeline for migration phases, microservice boundary grid, target stack badges
-- **Data Architecture** — vis.js entity network graph (colored by bounded context), entity table, boundary cards
+| Section | What you see |
+|---------|-------------|
+| **Overview** | Metric cards (files / classes / methods / endpoints), language chart, tech stack badges |
+| **Architecture** | Architecture block diagram (SVG), layer breakdown |
+| **API Endpoints** | Live search + HTTP method filter, full endpoint table |
+| **Dead Code** | Percentage ring, unreferenced file and class lists |
+| **Modernization** | Phase timeline, microservice boundary grid, target stack |
+| **Data Architecture** | Entity table, bounded context cards |
 
 ### `{repo}_report.md` — Technical Report
 
-GitHub / Confluence / Notion compatible Markdown. 11 sections + appendix, with Mermaid diagrams.
+12-section Markdown compatible with GitHub, Confluence, and Notion. Includes embedded SVG diagrams. When run via Claude Code or GitHub Copilot, AI-enhanced narrative is written directly into this file.
 
-### `{repo}_evaluation.md` — Quality Evaluation
+### `{repo}_block_diagram.svg` — Architecture Block Diagram
 
-Automated 100-point pipeline quality score. Generated after every run:
+Standalone responsive SVG showing the 6-layer architecture:
+`CLIENT → API/Presentation → Business Logic → Data Access → Database → External Services`
+
+Each layer is tinted a distinct color. Each node shows the component name with its class count. Embeddable in any HTML page or Markdown file.
+
+### `{repo}_dependency_graph.svg` — Module Dependency Graph
+
+Hierarchical column layout SVG:
+- **SOURCES** (left) — modules with outgoing deps only
+- **HUBS** (center) — modules with both in and out
+- **SINKS** (right) — modules with incoming deps only
+- **ISOLATED** (bottom) — standalone modules
+
+### `{repo}_evaluation.md` — Quality Score
+
+100-point automated quality score produced after every run:
 
 ```
-Score: 82/100  Confidence: HIGH
+Score: 78/100  Confidence: MEDIUM
 
-1. Parsing Quality            18/20  ✅ PASS
-2. API Endpoint Detection     18/20  ✅ PASS
-3. Dead Code Analysis         12/15  ✅ PASS
-4. Entity / Data Architecture 10/15  ⚠️ WARN  (0 relationships via Fluent API)
-5. Dependency Graph           15/15  ✅ PASS
-6. AI Analysis Quality        15/15  ✅ PASS
+Section 1 — Parsing Quality           18/20  ✅ PASS
+Section 2 — API Endpoint Detection    18/20  ✅ PASS
+Section 3 — Dead Code Analysis        12/15  ✅ PASS
+Section 4 — Entity / Data Architecture 8/15  ⚠️ WARN
+Section 5 — Dependency Graph          15/15  ✅ PASS
+Section 6 — AI Analysis Quality        7/15  ℹ️ INFO  (no API key)
 ```
 
-See `EVALUATION.md` in the project root for the full interpretation guide.
+Confidence bands: **HIGH** ≥ 80 · **MEDIUM** ≥ 60 · **LOW** ≥ 40 · **VERY LOW** < 40
 
 ### `manifest.json` — Run Manifest
 
-Machine-readable run record:
-
-```json
-{
-  "generated_at": "2026-05-26T10:30:00Z",
-  "repo_name": "nopCommerce",
-  "output_directory": "outputs/nopCommerce",
-  "files_written": [
-    { "file": "nopCommerce_sdd.json",        "type": "json", "size": 424960 },
-    { "file": "nopCommerce_dashboard.html",  "type": "text", "size": 98304  },
-    { "file": "nopCommerce_report.md",       "type": "text", "size": 34816  },
-    { "file": "nopCommerce_evaluation.md",   "type": "text", "size": 8192   },
-    { "file": "manifest.json",               "type": "json", "size": 1024   }
-  ],
-  "metrics": {
-    "files_analyzed": 292, "classes": 284,
-    "methods": 2301, "api_endpoints": 284,
-    "dead_files": 241, "primary_language": "dotnet"
-  }
-}
-```
+Machine-readable run record with metrics, file sizes, and timestamps. Useful for CI comparison between runs.
 
 ---
 
-## 7. Verify Output Quality
+## 9. Enable AI Mode
 
-Run these checks after any pipeline execution:
+Without an API key, heuristic fallbacks produce complete output for all 7 files.  
+With a key, `claude-sonnet-4-6` enriches the executive summary, modernization roadmap, and business logic analysis with context-aware narrative.
 
-```powershell
-# 1. Confirm all 5 files exist
-ls outputs\nopCommerce\
-
-# 2. Validate JSON
-python -c "import json; json.load(open('outputs/nopCommerce/nopCommerce_sdd.json', encoding='utf-8')); print('JSON valid')"
-
-# 3. Check no unfilled placeholders in HTML
-python -c "
-html = open('outputs/nopCommerce/nopCommerce_dashboard.html', encoding='utf-8').read()
-assert '%%' not in html, 'Found unfilled placeholders!'
-print('HTML clean')
-"
-
-# 4. Print key metrics from manifest
-python -c "
-import json
-m = json.load(open('outputs/nopCommerce/manifest.json', encoding='utf-8'))
-print(m['metrics'])
-"
-
-# 5. View evaluation score
-python -c "
-import re
-txt = open('outputs/nopCommerce/nopCommerce_evaluation.md', encoding='utf-8').read()
-score = re.search(r'(\d+)/100 pts', txt)
-if score: print('Evaluation score:', score.group(0))
-"
-```
-
-For a deep quality review, open `outputs/{repo}/{repo}_evaluation.md` — it contains PASS/WARN/FAIL checks for every analysis section with actionable recommendations.
-
----
-
-## 8. Enable AI Sections
-
-Without an API key, executive summary and modernization roadmap use smart heuristic fallbacks.  
-With a key, `claude-sonnet-4-6` generates richer, context-aware content.
+### Set the key
 
 ```powershell
-# PowerShell — current session
-$env:ANTHROPIC_API_KEY = "sk-ant-api03-..."
+# Windows PowerShell — current session
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
 
-# PowerShell — persist across all sessions
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY","sk-ant-api03-...","User")
+# Windows — persist across sessions
+[System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "User")
 ```
 
 ```bash
-# bash — current session
-export ANTHROPIC_API_KEY="sk-ant-api03-..."
+# macOS / Linux — current session
+export ANTHROPIC_API_KEY="sk-ant-..."
 
-# bash — persist (add to ~/.bashrc or ~/.zshrc)
-echo 'export ANTHROPIC_API_KEY="sk-ant-api03-..."' >> ~/.bashrc
+# Persist (add to ~/.bashrc or ~/.zshrc)
+echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.bashrc
+```
+
+### Install the SDK
+
+```bash
+pip install anthropic
 ```
 
 Get a key: <https://console.anthropic.com/>
 
 ---
 
-## 9. Project Structure
+## 10. Layer-Balanced File Cap
+
+For repos with more than 300 source files the pipeline selects files by layer priority rather than truncating arbitrarily:
+
+| Layer | Keyword signals | Max files | Why |
+|-------|----------------|-----------|-----|
+| 0 — Controllers | `controller`, `handler`, `router` | 75 | API surface always covered |
+| 1 — Services | `service`, `manager`, `processor` | 75 | Business logic always covered |
+| 2 — Repositories | `repository`, `repo`, `dao`, `dal` | 40 | Data access always covered |
+| 3 — Domain/Entity | `entity`, `domain`, `model`, `.aspx.cs` | 60 | ORM entities always covered |
+| 4 — Models/DTOs | `dto`, `viewmodel`, `schema` | 30 | Transfer objects included |
+| 5 — Everything else | remaining files | 20 | Best-effort coverage |
+| **Total cap** | | **300** | |
+
+Adjust quotas by editing `SLOTS` in `engine/pipeline.py`.
+
+---
+
+## 11. Project Structure
 
 ```
 reverse-eng-proj/
 │
-├── reverse_engineer_skill.py       42 lines  — CLI entry point
-├── requirements.txt                1 dep     — anthropic>=0.40.0
-├── README.md                       This file
-├── ARCHITECTURE.md                 Deep-dive: code, data flow, design decisions
-├── EVALUATION.md                   Guide to interpreting evaluation.md outputs
+├── reverse_engineer_skill.py     CLI entry point (≈ 42 lines)
+├── reverse_engineer_agent.py     Agent SDK wrapper (from skill-packages/03)
+├── requirements.txt              anthropic>=0.40.0
+├── run.bat                       Windows runner (auto-detects Python binary)
+├── run.sh                        macOS/Linux runner (auto-detects Python binary)
 │
-├── engine/                         Modular Python package (v3.0.0)
-│   ├── __init__.py                 Package exports + version string (3.0.0)
-│   ├── loaders.py                  File discovery — SUPPORTED_EXTENSIONS, SKIP_DIRS, load_repo()
-│   ├── parsers.py                  5 language parsers + ORM entity extractors
-│   ├── analyzer.py                 13 analysis functions: metrics, graph, APIs, dead code,
-│   │                               tech stack, platform, layers, entities, boundaries
-│   ├── ai_analysis.py              Claude API wrapper + heuristic fallbacks
-│   ├── output_manager.py           OutputManager class — write files, track sizes
-│   ├── evaluator.py                100-pt pipeline quality scorer + Markdown writer
-│   ├── pipeline.py                 9-stage orchestrator
+├── engine/                       Core analysis package
+│   ├── __init__.py
+│   ├── pipeline.py               9-stage orchestrator
+│   ├── loaders.py                File discovery (SUPPORTED_EXTENSIONS, SKIP_DIRS)
+│   ├── parsers.py                5 language parsers + ORM entity extractors
+│   ├── analyzer.py               18 analysis functions (metrics, graphs, APIs, dead code…)
+│   ├── ai_analysis.py            Claude API wrapper + heuristic fallbacks
+│   ├── output_manager.py         OutputManager — write files, track sizes
+│   ├── evaluator.py              100-point quality scorer + Markdown writer
 │   └── generators/
-│       ├── __init__.py             Package init
-│       ├── sdd.py                  SDD JSON builder (13 sections)
-│       ├── report.py               Markdown report builder (11 sections)
-│       └── dashboard.py            Apple-theme HTML dashboard (6 sidebar sections)
+│       ├── sdd.py                SDD JSON builder (14 sections)
+│       ├── report.py             Markdown report builder (12 sections)
+│       └── dashboard.py          Apple-theme HTML dashboard (6 sections)
 │
-├── templates/                      Development reference only — NOT read at runtime
-│   ├── sdd_template.json           SDD schema with placeholder comments
-│   ├── dashboard_template.html     Dashboard design reference with DATA object docs
-│   └── report_template.md          Report structure reference
+├── templates/                    Development reference only — NOT read at runtime
+│   ├── sdd_template.json
+│   ├── dashboard_template.html
+│   └── report_template.md
 │
 ├── .claude/
+│   ├── skills/
+│   │   └── reverse-engineer/
+│   │       └── SKILL.md          /reverse-engineer slash command (current standard)
 │   └── commands/
-│       └── reverse-engineer.md     /reverse-engineer slash command definition
+│       └── reverse-engineer.md   /reverse-engineer slash command (legacy fallback)
 │
 ├── .github/
-│   ├── copilot-instructions.md     Auto-loaded context for GitHub Copilot Chat
+│   ├── copilot-instructions.md   Auto-loaded context for GitHub Copilot Chat
 │   └── prompts/
-│       ├── reverse-engineer.prompt.md   Agent prompt (mode: agent)
-│       └── improve-parser.prompt.md     Parser extension guide (mode: ask)
+│       └── reverse-engineer.prompt.md   Agent prompt (mode: agent)
 │
-└── .vscode/
-    └── settings.json               Copilot + custom prompt file settings
+├── .vscode/
+│   └── settings.json             Copilot prompt file settings
+│
+├── skill-packages/               Distributable packages for your team
+│   ├── README.md
+│   ├── GOVERNANCE.md
+│   ├── build_packages.py
+│   ├── 01-claude-code-skill/
+│   ├── 02-github-copilot-skill/
+│   ├── 03-agent-sdk-skill/
+│   └── dist/                     Built ZIPs (git-ignored)
+│
+└── outputs/                      Generated files (git-ignored)
+    └── {repo_name}/
+        ├── {repo}_sdd.json
+        ├── {repo}_dashboard.html
+        ├── {repo}_report.md
+        ├── {repo}_block_diagram.svg
+        ├── {repo}_dependency_graph.svg
+        ├── {repo}_evaluation.md
+        └── manifest.json
 ```
 
 ---
 
-## 10. Engine Module Reference
+## 12. Engine Module Reference
 
 | Module | Key exports | Responsibility |
-|--------|------------|----------------|
-| `engine.loaders` | `load_repo`, `SUPPORTED_EXTENSIONS`, `SKIP_DIRS` | Walk repo, read source files |
-| `engine.parsers` | `parse_file`, `parse_python`, `parse_java`, `parse_dotnet`, `parse_js_ts` | Extract classes, methods, imports, routes, ORM entities |
-| `engine.analyzer` | `generate_report`, `build_dependency_map`, `generate_mermaid`, `extract_api_endpoints`, `generate_openapi_spec`, `detect_dead_code`, `detect_tech_stack`, `detect_platform`, `detect_architecture_layers`, `find_top_modules`, `extract_external_deps`, `detect_database_schema`, `suggest_microservice_data_boundaries` | All static analysis |
-| `engine.ai_analysis` | `ai_executive_summary`, `ai_modernization_roadmap` | Claude API + fallbacks |
-| `engine.output_manager` | `OutputManager` | Write files, track sizes, emit manifest |
-| `engine.evaluator` | `evaluate_pipeline_output`, `write_evaluation_md` | 100-pt quality scoring engine |
+|--------|-------------|----------------|
 | `engine.pipeline` | `run_pipeline`, `clone_repo`, `repo_name_from_url` | 9-stage orchestrator |
-| `engine.generators.sdd` | `generate_sdd` | Build SDD JSON dict (13 sections) |
-| `engine.generators.dashboard` | `generate_html_dashboard` | Build Apple-theme HTML (6 sections) |
-| `engine.generators.report` | `generate_md_report` | Build Markdown report (11 sections) |
+| `engine.loaders` | `load_repo`, `SUPPORTED_EXTENSIONS`, `SKIP_DIRS` | File discovery and content loading |
+| `engine.parsers` | `parse_file`, `parse_python`, `parse_java`, `parse_dotnet`, `parse_js_ts` | Regex-based language parsers + ORM extractors |
+| `engine.analyzer` | `generate_report`, `build_dependency_map`, `extract_api_endpoints`, `detect_dead_code`, `detect_tech_stack`, `generate_block_diagram`, `generate_block_diagram_svg`, `generate_dep_graph_svg` | All static analysis (18 functions) |
+| `engine.ai_analysis` | `ai_executive_summary`, `ai_modernization_roadmap`, `ai_business_logic_analysis`, `ai_all_sections_claude` | Claude API integration + heuristic fallbacks |
+| `engine.output_manager` | `OutputManager` | Write files, track sizes, emit `manifest.json` |
+| `engine.evaluator` | `evaluate_pipeline_output`, `write_evaluation_md` | 100-point quality scoring |
+| `engine.generators.sdd` | `generate_sdd` | Build 14-section SDD JSON dict |
+| `engine.generators.dashboard` | `generate_html_dashboard` | Build self-contained HTML dashboard |
+| `engine.generators.report` | `generate_md_report` | Build 12-section Markdown report |
 
 ### Parser return contract
 
-Every `parse_X` function returns:
+Every `parse_X()` returns:
 
 ```python
 {
     "file":         str,          # absolute path
     "language":     str,          # "python" | "java" | "dotnet" | "typescript" | "javascript"
     "classes":      list[str],    # class / interface names
-    "methods":      list[str],    # method / function names (keywords excluded)
+    "methods":      list[str],    # method / function names
     "imports":      list[str],    # raw import strings
     "dependencies": list[str],    # deduplicated dependency namespaces
     "routes":       list[dict],   # [{path, methods, class, method}]
@@ -487,74 +554,46 @@ Every `parse_X` function returns:
 }
 ```
 
-### File cap strategy (layer-balanced)
+---
 
-For repos with >300 source files, the pipeline uses a quota-based selection:
+## 13. Evaluation Scoring
 
-```
-Layer 0 — Controllers  (≤75 files)   ← API surface always covered
-Layer 1 — Services     (≤75 files)   ← Business logic always covered
-Layer 2 — Repositories (≤40 files)   ← Data access always covered
-Layer 3 — Domain/Entity(≤60 files)   ← ORM entities always covered
-Layer 4 — Models/DTOs  (≤30 files)
-Layer 5 — Everything else (≤20 files)
-Cap total: 300 files
-```
+The `_evaluation.md` file is generated automatically after every run.
 
-This replaces the old simple priority sort and ensures domain/entity files appear even in large enterprise repos where controllers + services alone exceed 300 files.
+| Section | Max | What is measured |
+|---------|-----|-----------------|
+| 1 — Parsing Quality | 20 pts | Classes, methods, and dependency extraction completeness |
+| 2 — API Endpoint Detection | 20 pts | Endpoint coverage vs. controller/route file count |
+| 3 — Dead Code Analysis | 15 pts | Unreferenced file detection rate |
+| 4 — Entity / Data Architecture | 15 pts | ORM entity and relationship extraction quality |
+| 5 — Dependency Graph | 15 pts | Graph density, hub detection, edge count |
+| 6 — AI Analysis Quality | 15 pts | Completeness of executive summary and roadmap sections |
+
+Score guide: **HIGH** ≥ 80 · **MEDIUM** ≥ 60 · **LOW** ≥ 40 · **VERY LOW** < 40
+
+If Section 6 scores low (common without an API key), the other five sections are the meaningful signal.
 
 ---
 
-## 11. Improving the Skill
-
-### Add a new language parser
+## 14. Adding a New Language
 
 1. Add the extension to `detect_language()` in `engine/parsers.py`
 2. Add the extension to `SUPPORTED_EXTENSIONS` in `engine/loaders.py`
-3. Write `parse_X(file_path, code) -> dict` returning the contract above (including `db_entities`)
-4. Optionally write `_extract_db_entities_X(file_path, code, classes) -> list` for ORM entity detection
+3. Write `parse_X(file_path, code) -> dict` — return the contract above (including `db_entities`)
+4. Optionally write `_extract_db_entities_X()` for ORM entity detection
 5. Add the dispatch case to `parse_file()`
 
-Full example (Go parser) in `.github/prompts/improve-parser.prompt.md`.
-
-### Adjust the file cap
-
-Edit `SLOTS` in `engine/pipeline.py` to change per-layer quotas:
-
-```python
-SLOTS = {0: 75, 1: 75, 2: 40, 3: 60, 4: 30, 5: 20}  # total ≤ 300
-```
-
-Increase layer 3 if entity detection coverage is low for a specific repo.
-
-### Coding conventions
-
-- No external dependencies beyond `anthropic` (git is called via `subprocess`)
-- All parsers use **regex only** — no AST library dependencies
-- AI sections **degrade gracefully** when `ANTHROPIC_API_KEY` is not set
-- All output files land in `./outputs/{repo_name}/` via `OutputManager`
-- HTML dashboard is self-contained except CDN for Chart.js, Mermaid, and vis-network
-- Python 3.8+ compatible syntax throughout
-- Google-style docstrings on every module, class, and function
-- All print statements use ASCII-safe characters (UTF-8 stdout wrapper handles the rest)
+Layer classification for the file cap uses filename path keywords — no parser changes needed for that.
 
 ---
 
-## 12. Token Usage
+## 15. Token Cost
 
-This project was built interactively using Claude AI across multiple Claude Code sessions.
+| Mode | API calls per run | Approximate cost |
+|------|------------------|-----------------|
+| Heuristic (`--heuristic`) | 0 | **$0.00** |
+| AI (`--ai`) | 1 (batched, all 3 sections) | **~$0.02** |
 
-### Runtime AI cost per analysis
+With `--ai`, `ai_all_sections_claude()` makes a **single Claude API call** that returns executive summary, modernization roadmap, and business logic analysis together. The Claude Code and GitHub Copilot modes use **$0.00** (the LLM session token usage is covered by your Claude Code / Copilot subscription).
 
-Each `python reverse_engineer_skill.py <url>` run with `ANTHROPIC_API_KEY` set makes **2 API calls** (executive summary + modernization roadmap):
-
-| Call | Input | Output | Cost |
-|------|-------|--------|------|
-| `ai_executive_summary` | ~800 tokens | ~400 tokens | ~$0.008 |
-| `ai_modernization_roadmap` | ~900 tokens | ~600 tokens | ~$0.012 |
-| **Per run** | | | **~$0.02** |
-
-Running without `ANTHROPIC_API_KEY` costs **$0.00** — heuristic fallbacks are used.
-
-Get a key: <https://console.anthropic.com/>  
-Current pricing: <https://www.anthropic.com/pricing>
+Get a key: <https://console.anthropic.com/> · Pricing: <https://www.anthropic.com/pricing>

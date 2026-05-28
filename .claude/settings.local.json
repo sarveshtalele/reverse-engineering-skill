@@ -26,7 +26,13 @@
       "Bash(where soffice *)",
       "Bash(where libreoffice *)",
       "Bash(where pdftoppm *)",
-      "Bash(python reverse_engineer_skill.py https://github.com/initcron/productlaunch --heuristic)"
+      "Bash(python reverse_engineer_skill.py https://github.com/initcron/productlaunch --heuristic)",
+      "Bash(dir /b)",
+      "Bash(dir engine *)",
+      "Bash(dir engine\\\\generators /b)",
+      "Bash(mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/skill-packages/01-claude-code-skill/.claude/commands\" && mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/skill-packages/02-github-copilot-skill/.github/prompts\" && mkdir -p \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/skill-packages/03-agent-sdk-skill\")",
+      "Bash(cp \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/.claude/commands/reverse-engineer.md\" \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/skill-packages/01-claude-code-skill/.claude/commands/reverse-engineer.md\")",
+      "Bash(cp \"C:/Users/SarveshTalele/Downloads/reverse-eng-proj/skill-packages/01-claude-code-skill/.claude/commands/reverse-engineer.md\" \\\\ *)"
     ]
   }
 }

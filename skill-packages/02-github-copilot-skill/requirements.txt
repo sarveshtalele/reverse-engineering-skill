@@ -1,0 +1,5 @@
+# Reverse Engineer Skill — GitHub Copilot Edition
+# Zero required Python dependencies. Engine uses stdlib + git only.
+
+# Optional: enable Python-level AI analysis (--ai flag)
+# anthropic>=0.40.0

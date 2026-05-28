@@ -1,0 +1,20 @@
+{
+  "name": "reverse_engineer_repo",
+  "description": "Reverse engineer any public GitHub repository. Clones the repo, runs a 9-stage static analysis pipeline (Python/Java/C#/TypeScript/JavaScript parsers), and generates 5 professional output files: SDD JSON (14 sections), HTML stakeholder dashboard, Markdown report, quality evaluation, and manifest. Returns structured metrics and AI narrative.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "repo_url": {
+        "type": "string",
+        "description": "Full GitHub repository URL, e.g. https://github.com/owner/repo"
+      },
+      "mode": {
+        "type": "string",
+        "enum": ["heuristic", "ai"],
+        "default": "heuristic",
+        "description": "Analysis mode. 'heuristic' uses rule-based analysis (no API key required). 'ai' calls Claude API for executive summary, modernization roadmap, and business logic analysis."
+      }
+    },
+    "required": ["repo_url"]
+  }
+}

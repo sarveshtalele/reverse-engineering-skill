@@ -1,0 +1,6 @@
+# Reverse Engineer Skill — Agent SDK Edition
+# Required for AI mode (Claude API tool use)
+anthropic>=0.40.0
+
+# Optional: load ANTHROPIC_API_KEY from .env file
+# python-dotenv>=1.0.0
